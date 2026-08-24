@@ -48,7 +48,7 @@ function App({ textProvider = liveBibleTextProvider }: { textProvider?: BibleTex
 
   return <>
     <header className="app-header">
-      <button className="brand" onClick={() => setScreen({ kind: 'workspace' })}>אדוות התנ״ך <small>מרחב עריכה</small></button>
+      <button className="brand" onClick={() => setScreen({ kind: 'workspace' })}><img src={`${import.meta.env.BASE_URL}icon-256.png`} alt="" /> <span>אדוות התנ״ך <small>מרחב עריכה</small></span></button>
       <nav aria-label="ניווט ראשי">
         <button className={screen.kind === 'workspace' ? 'active' : ''} onClick={() => setScreen({ kind: 'workspace' })}>תנ״ך</button>
         <button onClick={() => setScreen({ kind: 'proposal', proposalId: proposals.find((p) => p.status === 'open')?.id ?? proposals[0].id })}>הצעות <span className="count">{proposals.filter((p) => p.status === 'open').length}</span></button>
