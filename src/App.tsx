@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { BibleChapter, BiblePassage, Decision, Proposal, Ripple } from './domain'
 import { liveBibleTextProvider, type BibleTextProvider } from './bibleTextProvider'
 import { editorialRules, initialProposals, passageById, passages, referenceOf, ripples } from './mockData'
+import { toHebrewNumeral } from './hebrewNumerals'
 
 type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string }
 
@@ -68,6 +69,7 @@ type WorkspaceProps = {
 
 function Workspace({ provider, book, chapter, selectedId, proposals, onBook, onChapter, onSelect, onRipple, onProposal, onNew }: WorkspaceProps) {
   const [bibleChapter, setBibleChapter] = useState<BibleChapter | null>(null)
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   useEffect(() => { const bookRecord = passages.find((passage) => passage.book === book)!; let active = true; provider.getChapter(book, bookRecord.bookTitleHe, chapter).then((result) => { if (active) setBibleChapter(result) }); return () => { active = false } }, [book, chapter, provider])
   const availableBooks = [...new Set(passages.map((passage) => passage.book))]
   const availableChapters = [...new Set(passages.filter((passage) => passage.book === book).map((passage) => passage.chapter))]
@@ -80,22 +82,24 @@ function Workspace({ provider, book, chapter, selectedId, proposals, onBook, onC
     <section className="reader" aria-labelledby="chapter-title">
       <div className="toolbar">
         <label>ספר<select value={book} onChange={(event) => { const nextBook = event.target.value; const first = passages.find((p) => p.book === nextBook)!; onBook(nextBook); onChapter(first.chapter); onSelect(first.id) }}>{availableBooks.map((item) => <option key={item} value={item}>{passages.find((passage) => passage.book === item)!.bookTitleHe}</option>)}</select></label>
-        <label>פרק<select value={chapter} onChange={(event) => { const next = Number(event.target.value); onChapter(next); onSelect(passages.find((p) => p.book === book && p.chapter === next)!.id) }}>{availableChapters.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label>פרק<select value={chapter} onChange={(event) => { const next = Number(event.target.value); onChapter(next); onSelect(passages.find((p) => p.book === book && p.chapter === next)!.id) }}>{availableChapters.map((item) => <option key={item} value={item}>{toHebrewNumeral(item)}</option>)}</select></label>
       </div>
-      <div className="chapter-heading"><div><span className="eyebrow">קריאה בהקשר</span><h1 id="chapter-title">{selected.bookTitleHe} פרק {chapter}</h1></div><span className="hint">בחרו פסוק כדי לראות אדוות</span></div>
+      <div className="chapter-heading"><div><span className="eyebrow">קריאה בהקשר</span><h1 id="chapter-title">{selected.bookTitleHe} פרק {toHebrewNumeral(chapter)}</h1></div><span className="hint">בחרו פסוק כדי לראות אדוות</span></div>
       <div className="chapter-text">
         {!bibleChapter && <p className="loading">טוען את הפרק מספריא…</p>}
         {bibleChapter?.verses.map((verse) => {
           const knownPassage = passages.find((passage) => passage.book === book && passage.chapter === chapter && passage.startVerse === verse.ref.startVerse && !passage.endVerse)
           const rippleCount = knownPassage ? ripples.filter((ripple) => ripple.members.some((member) => member.passageId === knownPassage.id)).length : 0
-          return <button key={verse.ref.canonicalRef} className={`verse ${knownPassage && selectedId === knownPassage.id ? 'selected' : ''}`} onClick={() => knownPassage && onSelect(knownPassage.id)} aria-pressed={Boolean(knownPassage && selectedId === knownPassage.id)}>
-            <sup>{verse.ref.startVerse}</sup> {verse.text} {rippleCount > 0 && <span className="ripple-marker" aria-label={`${rippleCount} אדוות`}>{rippleCount}</span>}
+          return <button key={verse.ref.canonicalRef} className={`verse ${knownPassage && selectedId === knownPassage.id ? 'selected' : ''}`} onClick={() => { if (knownPassage) { onSelect(knownPassage.id); setMobilePanelOpen(true) } }} aria-pressed={Boolean(knownPassage && selectedId === knownPassage.id)}>
+            <sup>{toHebrewNumeral(verse.ref.startVerse)}</sup> {verse.text} {rippleCount > 0 && <span className="ripple-marker" aria-label={`${rippleCount} אדוות`}><span className="marker-short">{rippleCount}</span><span className="marker-long">{rippleCount === 1 ? 'אדווה אחת' : `${rippleCount} אדוות`}</span></span>}
           </button>
         })}
       </div>
       <p className="text-source">טקסט: ספריא · {bibleChapter?.source === 'sefaria' ? "Tanach with Ta'amei Hamikra · נחלת הכלל" : 'מצב מקומי זמני'}</p>
     </section>
-    <aside className="side-panel" aria-labelledby="selection-title">
+    {mobilePanelOpen && <button className="panel-backdrop" aria-label="סגירת פאנל האדוות" onClick={() => setMobilePanelOpen(false)} />}
+    <aside className={`side-panel ${mobilePanelOpen ? 'mobile-open' : ''}`} aria-labelledby="selection-title">
+      <button className="panel-close" aria-label="סגירת פאנל האדוות" onClick={() => setMobilePanelOpen(false)}>×</button>
       <span className="eyebrow">הפסוק הנבחר</span>
       <h2 id="selection-title">{referenceOf(selected)}</h2>
       <p className="selected-text">{selectedText}</p>
@@ -107,6 +111,7 @@ function Workspace({ provider, book, chapter, selectedId, proposals, onBook, onC
         {relatedProposals.map((proposal) => <button className="list-card" key={proposal.id} onClick={() => onProposal(proposal.id)}><small className={`status ${proposal.status}`}>{statusLabel[proposal.status]}</small><strong>{proposal.title}</strong><span>פתיחת ההצעה ←</span></button>)}
       </section>
     </aside>
+    {!mobilePanelOpen && <button className="mobile-ripple-bar" onClick={() => setMobilePanelOpen(true)}><span><strong>{referenceOf(selected)}</strong> · {relatedRipples.length === 1 ? 'אדווה אחת' : `${relatedRipples.length} אדוות`}</span><span>הצגה ↑</span></button>}
   </div>
 }
 

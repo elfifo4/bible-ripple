@@ -6,10 +6,10 @@ import { MockBibleTextProvider } from './bibleTextProvider'
 describe('critical editorial workflow', () => {
   it('starts a proposal from Genesis 6:9 to Proverbs 20:7', () => {
     render(<App textProvider={new MockBibleTextProvider()} />)
-    expect(screen.getByRole('heading', { name: 'בראשית פרק 6' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'בראשית פרק ו' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ הצעת אדווה' }))
     expect(screen.getByRole('combobox', { name: 'מקור נוסף' })).toHaveValue('prov-20-7')
-    expect(screen.getAllByText('משלי 20:7')).toHaveLength(2)
+    expect(screen.getAllByText('משלי כ:ז')).toHaveLength(2)
     fireEvent.change(screen.getByPlaceholderText('מה המקור הנוסף מאיר, משלים או מסביר?'), { target: { value: 'דמיון בין צדיק, תום והליכה.' } })
     fireEvent.click(screen.getByRole('button', { name: 'שליחה לדיון' }))
     expect(screen.getByText('פתוחה לדיון')).toBeInTheDocument()

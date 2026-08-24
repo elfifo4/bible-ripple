@@ -1,4 +1,5 @@
 import type { EditorialRule, PassageRef, Proposal, Ripple } from './domain'
+import { toHebrewNumeral } from './hebrewNumerals'
 
 export type MockPassageRecord = PassageRef & { fallbackText: string }
 
@@ -50,4 +51,4 @@ export const initialProposals: Proposal[] = [
 ]
 
 export const passageById = (id: string) => passages.find((passage) => passage.id === id)!
-export const referenceOf = (passage: PassageRef) => `${passage.bookTitleHe} ${passage.chapter}:${passage.startVerse}${passage.endVerse ? `–${passage.endVerse}` : ''}`
+export const referenceOf = (passage: PassageRef) => `${passage.bookTitleHe} ${toHebrewNumeral(passage.chapter)}:${toHebrewNumeral(passage.startVerse)}${passage.endVerse ? `–${toHebrewNumeral(passage.endVerse)}` : ''}`
