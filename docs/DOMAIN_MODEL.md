@@ -12,6 +12,8 @@ The implementation may evolve as we test the product.
 
 A reference to a contiguous unit of biblical text.
 
+A Passage identifies a biblical location; it does not own a permanent copy of the biblical text. The current prototype stores a normalized Sefaria-style canonical reference and separate Hebrew display metadata. Text, edition and license metadata are supplied through a Bible text provider. This keeps editorial relationships stable if the selected textual edition changes.
+
 A Passage may represent:
 
 - one verse;

@@ -1,11 +1,30 @@
-export type Passage = {
+export type PassageRef = {
   id: string
+  canonicalRef: string
   book: string
+  bookTitleHe: string
   bookOrder: number
   chapter: number
   startVerse: number
   endVerse?: number
+}
+
+export type Passage = PassageRef
+
+export type BiblePassage = {
+  ref: PassageRef
   text: string
+  source: 'sefaria' | 'mock'
+  versionTitle: string
+  license: string
+}
+
+export type BibleChapter = {
+  book: string
+  bookTitleHe: string
+  chapter: number
+  verses: BiblePassage[]
+  source: BiblePassage['source']
 }
 
 export type RippleMember = {

@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
+import { MockBibleTextProvider } from './bibleTextProvider'
 
 describe('critical editorial workflow', () => {
   it('starts a proposal from Genesis 6:9 to Proverbs 20:7', () => {
-    render(<App />)
+    render(<App textProvider={new MockBibleTextProvider()} />)
     expect(screen.getByRole('heading', { name: 'בראשית פרק 6' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ הצעת אדווה' }))
     expect(screen.getByRole('combobox', { name: 'מקור נוסף' })).toHaveValue('prov-20-7')

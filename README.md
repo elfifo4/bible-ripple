@@ -44,6 +44,8 @@ This repository contains a low-fidelity, Hebrew-first editorial prototype. It us
 
 The prototype intentionally has no backend, authentication, AI features, or complete Tanakh corpus.
 
+Biblical text is fetched from [Sefaria](https://www.sefaria.org/) using the public-domain Hebrew version **Tanach with Ta'amei Hamikra**, which includes vowel points and cantillation marks. A small local fallback keeps the editorial workflow usable during network failures. See [docs/TEXT_SOURCE.md](docs/TEXT_SOURCE.md) for API, reference, licensing and architecture details.
+
 ## Local development
 
 Requires Node.js 22 or newer.
