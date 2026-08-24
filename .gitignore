@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.vite/
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Source material supplied privately for editorial research.
+# Do not commit the original "אדוות התנ״ך" PDF/Doc without explicit permission.
+*.private.pdf
+*.private.docx
+node_modules/
+dist/
+.DS_Store
+*.local
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
