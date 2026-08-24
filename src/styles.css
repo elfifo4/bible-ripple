@@ -1,4 +1,5 @@
-:root { font-family: Arial, "Noto Sans Hebrew", sans-serif; color: #252823; background: #f4f3ef; font-synthesis: none; }
+@font-face { font-family: "Keter"; src: url("./assets/fonts/Keter-Medium.ttf") format("truetype"); font-weight: 500; font-style: normal; font-display: swap; }
+:root { font-family: "Keter", Arial, "Noto Sans Hebrew", sans-serif; color: #252823; background: #f4f3ef; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
 button, select, textarea { font: inherit; }
@@ -16,3 +17,7 @@ main { min-height: calc(100vh - 64px); }.workspace { display: grid; grid-templat
 .proposal-page section { margin-top: 36px; }.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }.reason { background: #fff; padding: 20px; border: 1px solid #ddd; }.reason h2, .reason p { margin-top: 0; }.discussion { list-style: none; padding: 0; }.discussion li { border-bottom: 1px solid #d9d8d2; padding: 18px 0; }.discussion time { color: #747770; font-size: 12px; margin-inline-start: 12px; }.discussion p { margin-bottom: 0; }.comment-box, .decision-form { background: #fff; border: 1px solid #ddd; padding: 18px; }.decision { border-right: 5px solid; padding: 20px; background: #fff; }.decision.rejected { border-color: #a34e44; }.decision.accepted { border-color: #3b7651; }.decision h2 { margin-top: 0; }.rule-ref { background: #f1f0eb; padding: 9px; font-size: 14px; }.editor-actions { border-top: 1px solid #ccc; padding-top: 20px; }.accept { background: #326d49; color: white; border-color: #326d49 !important; }.reject { background: #933f37; color: white; border-color: #933f37 !important; }button:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 850px) { .workspace { grid-template-columns: 1fr; }.side-panel { border-right: 0; border-top: 1px solid #ddd; }.reader { padding: 24px; }.comparison { grid-template-columns: 1fr; }.user { display: none; } }
 @media (max-width: 560px) { .app-header { padding: 0 14px; gap: 8px; }.brand small { display: none; } nav button { padding: 0 8px; }.toolbar { flex-wrap: wrap; }.chapter-text { font-size: 20px; }.proposal-heading { align-items: flex-start; flex-direction: column; } }
+
+/* Keter is designed for pointed Hebrew and is used consistently across the prototype. */
+.chapter-heading h1, .page h1, .chapter-text, .side-panel h2, .selected-text, .passage-card p { font-family: "Keter", Georgia, "Noto Serif Hebrew", serif; }
+.verse sup, .ripple-marker, .loading { font-family: "Keter", Arial, sans-serif; }
