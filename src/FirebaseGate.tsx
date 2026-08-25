@@ -11,7 +11,7 @@ type GateState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; user: User; content: EditorialContent }
 
-const friendlyName = (user: User) => user.displayName?.split(' ')[0] || user.email || 'עורך'
+const displayName = (user: User) => user.displayName || user.email || 'עורך'
 
 export default function FirebaseGate() {
   const [state, setState] = useState<GateState>({ kind: 'loading' })
@@ -52,7 +52,8 @@ export default function FirebaseGate() {
   if (state.kind === 'error') return <GateCard title="משהו השתבש" body={state.message}><button onClick={() => window.location.reload()}>ניסיון נוסף</button></GateCard>
 
   return <App
-    currentUserName={friendlyName(state.user)}
+    currentUserName={displayName(state.user)}
+    currentUserPhotoUrl={state.user.photoURL}
     ripplesData={state.content.ripples}
     initialProposals={state.content.proposals}
     editorialRulesData={state.content.editorialRules}

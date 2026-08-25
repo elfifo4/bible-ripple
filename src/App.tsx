@@ -27,6 +27,7 @@ function PassageCard({ id, action, provider }: { id: string; action?: React.Reac
 type AppProps = {
   textProvider?: BibleTextProvider
   currentUserName: string
+  currentUserPhotoUrl?: string | null
   ripplesData: Ripple[]
   initialProposals: Proposal[]
   editorialRulesData: EditorialRule[]
@@ -34,7 +35,7 @@ type AppProps = {
   onSignOut?: () => void
 }
 
-function App({ textProvider = liveBibleTextProvider, currentUserName, ripplesData, initialProposals, editorialRulesData, onSaveProposal, onSignOut }: AppProps) {
+function App({ textProvider = liveBibleTextProvider, currentUserName, currentUserPhotoUrl, ripplesData, initialProposals, editorialRulesData, onSaveProposal, onSignOut }: AppProps) {
   const [screen, setScreen] = useState<Screen>({ kind: 'workspace' })
   const [book, setBook] = useState('Genesis')
   const [chapter, setChapter] = useState(6)
@@ -64,7 +65,15 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, ripplesDat
         <button className={screen.kind === 'workspace' ? 'active' : ''} onClick={() => setScreen({ kind: 'workspace' })}>תנ״ך</button>
         <button onClick={() => setScreen({ kind: 'proposal', proposalId: proposals.find((p) => p.status === 'open')?.id ?? proposals[0].id })}>הצעות <span className="count">{proposals.filter((p) => p.status === 'open').length}</span></button>
       </nav>
-      <button className="user" onClick={onSignOut} title={onSignOut ? 'יציאה' : undefined}>עורך: {currentUserName}</button>
+      <div className="user-menu">
+        <div className="user-profile">
+          {currentUserPhotoUrl
+            ? <img className="user-avatar" src={currentUserPhotoUrl} alt={`תמונת הפרופיל של ${currentUserName}`} referrerPolicy="no-referrer" />
+            : <span className="user-avatar user-initial" aria-hidden="true">{currentUserName.charAt(0)}</span>}
+          <span className="user-name">עורך: {currentUserName}</span>
+        </div>
+        {onSignOut && <button className="sign-out" onClick={onSignOut}>יציאה</button>}
+      </div>
     </header>
     <main>{content}</main>
   </>

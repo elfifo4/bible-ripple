@@ -22,4 +22,23 @@ describe('critical editorial workflow', () => {
     expect(screen.getByText('פתוחה לדיון')).toBeInTheDocument()
     expect(screen.getByText('דמיון בין צדיק, תום והליכה.')).toBeInTheDocument()
   })
+
+  it('shows user identity separately from the sign-out action', () => {
+    const onSignOut = vi.fn()
+    render(<App
+      textProvider={new MockBibleTextProvider()}
+      currentUserName="Elad Finish"
+      currentUserPhotoUrl="https://example.com/avatar.jpg"
+      ripplesData={[]}
+      initialProposals={[]}
+      editorialRulesData={[]}
+      onSaveProposal={vi.fn().mockResolvedValue(undefined)}
+      onSignOut={onSignOut}
+    />)
+
+    expect(screen.getByText('עורך: Elad Finish')).toBeInTheDocument()
+    expect(screen.getByAltText('תמונת הפרופיל של Elad Finish')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'יציאה' }))
+    expect(onSignOut).toHaveBeenCalledOnce()
+  })
 })

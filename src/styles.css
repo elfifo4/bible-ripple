@@ -6,7 +6,13 @@ button, select, textarea { font: inherit; }
 button { cursor: pointer; color: inherit; }
 .app-header { height: 64px; display: flex; align-items: center; gap: 32px; padding: 0 28px; background: #fff; border-bottom: 1px solid #d9d8d2; position: sticky; top: 0; z-index: 3; }
 .brand { border: 0; background: none; font-size: 20px; font-weight: 700; padding: 0; display: flex; align-items: center; gap: 9px; }.brand img { width: 42px; height: 42px; object-fit: contain; }.brand small { font-size: 12px; font-weight: 400; color: #6a6e66; margin-inline-start: 8px; }
-nav { display: flex; align-self: stretch; } nav button { border: 0; border-bottom: 3px solid transparent; background: none; padding: 0 18px; } nav button.active { border-color: #315f52; color: #315f52; }.count { background: #e5ece8; border-radius: 12px; padding: 2px 7px; margin-inline-start: 4px; }.user { margin-inline-start: auto; color: #666; font-size: 14px; }
+nav { display: flex; align-self: stretch; } nav button { border: 0; border-bottom: 3px solid transparent; background: none; padding: 0 18px; } nav button.active { border-color: #315f52; color: #315f52; }.count { background: #e5ece8; border-radius: 12px; padding: 2px 7px; margin-inline-start: 4px; }
+.user-menu { margin-inline-start: auto; display: flex; align-items: center; gap: 12px; color: #666; font-size: 14px; }
+.user-profile { display: flex; align-items: center; gap: 8px; }
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: #e5ece8; }
+.user-initial { display: grid; place-items: center; color: #315f52; font-weight: 700; }
+.sign-out { border: 1px solid #c9cbc5; border-radius: 4px; background: #fff; padding: 6px 10px; }
+.sign-out:hover { border-color: #7a817a; background: #f6f6f3; }
 main { min-height: calc(100vh - 64px); }.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 390px); min-height: calc(100vh - 64px); }.reader { padding: 32px clamp(32px, 6vw, 88px); }.side-panel { background: #fff; border-right: 1px solid #d9d8d2; padding: 32px 26px; }
 .toolbar { display: flex; gap: 12px; margin-bottom: 36px; }.toolbar label { display: flex; align-items: center; gap: 8px; font-size: 14px; }.toolbar select, .field select, .field textarea { background: #fff; border: 1px solid #b8bab3; border-radius: 4px; padding: 9px 11px; }.chapter-heading, .card-heading, .section-title, .proposal-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }.eyebrow { display: block; color: #58645e; font-size: 12px; font-weight: 700; letter-spacing: .03em; margin-bottom: 6px; }.chapter-heading h1, .page h1 { margin: 0; font-family: Georgia, "Noto Serif Hebrew", serif; font-size: 34px; }.hint, .meta { color: #70736c; font-size: 14px; }
 .chapter-text { margin-top: 22px; font-family: Georgia, "Noto Serif Hebrew", serif; font-size: 23px; line-height: 2.05; }.verse { border: 0; background: transparent; text-align: right; display: inline; border-radius: 3px; padding: 4px 2px; }.verse:hover { background: #e9e8e2; }.verse.selected { background: #dce8e2; outline: 2px solid #9bb9ac; }.verse sup { font-family: Arial, sans-serif; color: #6c716a; font-size: 11px; }.ripple-marker { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; background: #315f52; color: #fff; font: 11px Arial; vertical-align: middle; }
@@ -19,7 +25,7 @@ main { min-height: calc(100vh - 64px); }.workspace { display: grid; grid-templat
   .workspace { display: block; min-height: calc(100vh - 64px); }
   .reader { padding: 24px 24px 88px; }
   .comparison { grid-template-columns: 1fr; }
-  .user { display: none; }
+  .user-name { display: none; }
   .side-panel { position: fixed; inset: auto 0 0; z-index: 12; max-height: min(76vh, 680px); overflow-y: auto; border: 0; border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(25, 35, 30, .22); padding: 36px 24px 28px; transform: translateY(105%); visibility: hidden; transition: transform .22s ease, visibility .22s; }
   .side-panel.mobile-open { transform: translateY(0); visibility: visible; }
   .panel-close { display: block; position: absolute; inset-block-start: 9px; inset-inline-end: 16px; width: 32px; height: 32px; border: 0; background: transparent; font-size: 27px; line-height: 1; color: #555d57; }
@@ -29,7 +35,7 @@ main { min-height: calc(100vh - 64px); }.workspace { display: grid; grid-templat
   .marker-short { display: none; }
   .marker-long { display: inline; }
 }
-@media (max-width: 560px) { .app-header { padding: 0 14px; gap: 8px; }.brand small { display: none; } nav button { padding: 0 8px; }.toolbar { flex-wrap: wrap; }.chapter-text { font-size: 20px; }.proposal-heading { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 560px) { .app-header { padding: 0 14px; gap: 6px; }.brand span { display: none; } nav button { padding: 0 6px; }.user-menu { gap: 6px; }.sign-out { padding: 6px 8px; }.toolbar { flex-wrap: wrap; }.chapter-text { font-size: 20px; }.proposal-heading { align-items: flex-start; flex-direction: column; } }
 
 /* Keter is designed for pointed Hebrew and is used consistently across the prototype. */
 .chapter-heading h1, .page h1, .chapter-text, .side-panel h2, .selected-text, .passage-card p { font-family: "Keter", Georgia, "Noto Serif Hebrew", serif; }
