@@ -4,7 +4,9 @@ import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAGIa7Qzmx-09xUP-iHG2CDsRfWi_TpsDI',
-  authDomain: 'bible-ripple.firebaseapp.com',
+  // Keep redirect authentication on the same origin so mobile browsers that
+  // partition third-party storage can restore the Firebase session.
+  authDomain: 'bible-ripple.web.app',
   projectId: 'bible-ripple',
   storageBucket: 'bible-ripple.firebasestorage.app',
   messagingSenderId: '483598197989',
