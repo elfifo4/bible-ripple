@@ -1,0 +1,34 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAllowedEditor() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/editorAccess/$(request.auth.token.email));
+    }
+
+    match /editorAccess/{email} {
+      allow read: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == email;
+      allow write: if false;
+    }
+
+    match /ripples/{document=**} {
+      allow read, write: if isAllowedEditor();
+    }
+
+    match /proposals/{document=**} {
+      allow read, write: if isAllowedEditor();
+    }
+
+    match /editorialRules/{document=**} {
+      allow read, write: if isAllowedEditor();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

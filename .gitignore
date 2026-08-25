@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.firebase/
+*-debug.log
 .vite/
 .DS_Store
 .env

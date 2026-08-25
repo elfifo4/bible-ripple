@@ -34,3 +34,11 @@ main { min-height: calc(100vh - 64px); }.workspace { display: grid; grid-templat
 /* Keter is designed for pointed Hebrew and is used consistently across the prototype. */
 .chapter-heading h1, .page h1, .chapter-text, .side-panel h2, .selected-text, .passage-card p { font-family: "Keter", Georgia, "Noto Serif Hebrew", serif; }
 .verse sup, .ripple-marker, .loading { font-family: "Keter", Arial, sans-serif; }
+/* Authentication gate */
+.auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; background: #f5f3ed; }
+.auth-card { width: min(100%, 24rem); padding: 2rem; border: 1px solid #d8d3c8; border-radius: 1rem; background: #fff; text-align: center; box-shadow: 0 12px 35px rgb(42 38 29 / 8%); }
+.auth-card img { width: 4rem; height: 4rem; margin-bottom: .75rem; }
+.auth-card h1 { margin: 0 0 .5rem; }
+.auth-card p { color: #625e55; line-height: 1.6; }
+.auth-card button { margin-top: 1rem; }
+.google-sign-in { width: 100%; padding: .75rem 1rem; }

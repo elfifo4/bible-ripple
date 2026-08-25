@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { BibleChapter, BiblePassage, Decision, Proposal, Ripple } from './domain'
+import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Ripple } from './domain'
 import { liveBibleTextProvider, type BibleTextProvider } from './bibleTextProvider'
-import { editorialRules, initialProposals, passageById, passages, referenceOf, ripples } from './mockData'
+import { passageById, passages, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
 
 type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string }
@@ -24,7 +24,17 @@ function PassageCard({ id, action, provider }: { id: string; action?: React.Reac
   </article>
 }
 
-function App({ textProvider = liveBibleTextProvider }: { textProvider?: BibleTextProvider }) {
+type AppProps = {
+  textProvider?: BibleTextProvider
+  currentUserName: string
+  ripplesData: Ripple[]
+  initialProposals: Proposal[]
+  editorialRulesData: EditorialRule[]
+  onSaveProposal: (proposal: Proposal) => Promise<void>
+  onSignOut?: () => void
+}
+
+function App({ textProvider = liveBibleTextProvider, currentUserName, ripplesData, initialProposals, editorialRulesData, onSaveProposal, onSignOut }: AppProps) {
   const [screen, setScreen] = useState<Screen>({ kind: 'workspace' })
   const [book, setBook] = useState('Genesis')
   const [chapter, setChapter] = useState(6)
@@ -40,12 +50,12 @@ function App({ textProvider = liveBibleTextProvider }: { textProvider?: BibleTex
   }
 
   const content = screen.kind === 'workspace'
-    ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} onBook={setBook} onChapter={setChapter} onSelect={setSelectedId} onRipple={(rippleId) => setScreen({ kind: 'ripple', rippleId })} onProposal={(proposalId) => setScreen({ kind: 'proposal', proposalId })} onNew={() => setScreen({ kind: 'new-proposal', sourceId: selectedId })} />
+    ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripplesData} onBook={setBook} onChapter={setChapter} onSelect={setSelectedId} onRipple={(rippleId) => setScreen({ kind: 'ripple', rippleId })} onProposal={(proposalId) => setScreen({ kind: 'proposal', proposalId })} onNew={() => setScreen({ kind: 'new-proposal', sourceId: selectedId })} />
     : screen.kind === 'ripple'
-      ? <RippleView provider={textProvider} ripple={ripples.find((ripple) => ripple.id === screen.rippleId)!} onBack={() => setScreen({ kind: 'workspace' })} onNavigate={navigateToPassage} />
+      ? <RippleView provider={textProvider} ripple={ripplesData.find((ripple) => ripple.id === screen.rippleId)!} onBack={() => setScreen({ kind: 'workspace' })} onNavigate={navigateToPassage} />
       : screen.kind === 'new-proposal'
-        ? <NewProposal provider={textProvider} sourceId={screen.sourceId} onCancel={() => setScreen({ kind: 'workspace' })} onSave={(proposal) => { setProposals((current) => [proposal, ...current]); setScreen({ kind: 'proposal', proposalId: proposal.id }) }} />
-        : <ProposalView provider={textProvider} proposal={proposals.find((proposal) => proposal.id === screen.proposalId)!} onBack={() => setScreen({ kind: 'workspace' })} onUpdate={(updated) => setProposals((current) => current.map((proposal) => proposal.id === updated.id ? updated : proposal))} />
+        ? <NewProposal provider={textProvider} sourceId={screen.sourceId} proposer={currentUserName} onCancel={() => setScreen({ kind: 'workspace' })} onSave={(proposal) => { setProposals((current) => [proposal, ...current]); void onSaveProposal(proposal); setScreen({ kind: 'proposal', proposalId: proposal.id }) }} />
+        : <ProposalView provider={textProvider} proposal={proposals.find((proposal) => proposal.id === screen.proposalId)!} currentUserName={currentUserName} editorialRules={editorialRulesData} onBack={() => setScreen({ kind: 'workspace' })} onUpdate={(updated) => { setProposals((current) => current.map((proposal) => proposal.id === updated.id ? updated : proposal)); void onSaveProposal(updated) }} />
 
   return <>
     <header className="app-header">
@@ -54,7 +64,7 @@ function App({ textProvider = liveBibleTextProvider }: { textProvider?: BibleTex
         <button className={screen.kind === 'workspace' ? 'active' : ''} onClick={() => setScreen({ kind: 'workspace' })}>תנ״ך</button>
         <button onClick={() => setScreen({ kind: 'proposal', proposalId: proposals.find((p) => p.status === 'open')?.id ?? proposals[0].id })}>הצעות <span className="count">{proposals.filter((p) => p.status === 'open').length}</span></button>
       </nav>
-      <span className="user">עורכת: יעל</span>
+      <button className="user" onClick={onSignOut} title={onSignOut ? 'יציאה' : undefined}>עורך: {currentUserName}</button>
     </header>
     <main>{content}</main>
   </>
@@ -62,12 +72,12 @@ function App({ textProvider = liveBibleTextProvider }: { textProvider?: BibleTex
 
 type WorkspaceProps = {
   provider: BibleTextProvider
-  book: string; chapter: number; selectedId: string; proposals: Proposal[]
+  book: string; chapter: number; selectedId: string; proposals: Proposal[]; ripples: Ripple[]
   onBook: (value: string) => void; onChapter: (value: number) => void; onSelect: (id: string) => void
   onRipple: (id: string) => void; onProposal: (id: string) => void; onNew: () => void
 }
 
-function Workspace({ provider, book, chapter, selectedId, proposals, onBook, onChapter, onSelect, onRipple, onProposal, onNew }: WorkspaceProps) {
+function Workspace({ provider, book, chapter, selectedId, proposals, ripples, onBook, onChapter, onSelect, onRipple, onProposal, onNew }: WorkspaceProps) {
   const [bibleChapter, setBibleChapter] = useState<BibleChapter | null>(null)
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   useEffect(() => { const bookRecord = passages.find((passage) => passage.book === book)!; let active = true; provider.getChapter(book, bookRecord.bookTitleHe, chapter).then((result) => { if (active) setBibleChapter(result) }); return () => { active = false } }, [book, chapter, provider])
@@ -124,7 +134,7 @@ function RippleView({ ripple, onBack, onNavigate, provider }: { ripple: Ripple; 
   </div>
 }
 
-function NewProposal({ sourceId, onCancel, onSave, provider }: { sourceId: string; onCancel: () => void; onSave: (proposal: Proposal) => void; provider: BibleTextProvider }) {
+function NewProposal({ sourceId, proposer, onCancel, onSave, provider }: { sourceId: string; proposer: string; onCancel: () => void; onSave: (proposal: Proposal) => void; provider: BibleTextProvider }) {
   const candidates = passages.filter((passage) => passage.id !== sourceId)
   const preferred = candidates.find((passage) => passage.id === 'prov-20-7')?.id ?? candidates[0].id
   const [targetId, setTargetId] = useState(preferred)
@@ -132,7 +142,7 @@ function NewProposal({ sourceId, onCancel, onSave, provider }: { sourceId: strin
   const [reasoning, setReasoning] = useState('')
   const source = passageById(sourceId)
 
-  const save = (status: 'draft' | 'open') => onSave({ id: `proposal-${Date.now()}`, title: `${referenceOf(source)} ו${referenceOf(passageById(targetId))}`, proposer: 'יעל', passageIds: [sourceId, targetId], proposedType: type, reasoning: reasoning || 'טרם נוסף נימוק.', status, createdAt: new Date().toISOString(), comments: [] })
+  const save = (status: 'draft' | 'open') => onSave({ id: `proposal-${Date.now()}`, title: `${referenceOf(source)} ו${referenceOf(passageById(targetId))}`, proposer, passageIds: [sourceId, targetId], proposedType: type, reasoning: reasoning || 'טרם נוסף נימוק.', status, createdAt: new Date().toISOString(), comments: [] })
   return <div className="page form-page">
     <button className="back" onClick={onCancel}>→ ביטול וחזרה</button><span className="eyebrow">הצעה חדשה</span><h1>הצעת אדווה אפשרית</h1><p className="lead">בחרו מקור נוסף והסבירו מה הוא מאיר במקור שממנו התחלתם.</p>
     <form onSubmit={(event) => { event.preventDefault(); save('open') }}>
@@ -149,15 +159,17 @@ function NewProposal({ sourceId, onCancel, onSave, provider }: { sourceId: strin
   </div>
 }
 
-function ProposalView({ proposal, onBack, onUpdate, provider }: { proposal: Proposal; onBack: () => void; onUpdate: (proposal: Proposal) => void; provider: BibleTextProvider }) {
+function ProposalView({ proposal, currentUserName, editorialRules, onBack, onUpdate, provider }: { proposal: Proposal; currentUserName: string; editorialRules: EditorialRule[]; onBack: () => void; onUpdate: (proposal: Proposal) => void; provider: BibleTextProvider }) {
   const [comment, setComment] = useState('')
   const [decisionMode, setDecisionMode] = useState<Decision['outcome'] | null>(null)
   const [decisionReason, setDecisionReason] = useState('')
-  const referencedRules = useMemo(() => editorialRules.filter((rule) => proposal.decision?.ruleIds?.includes(rule.id)), [proposal])
-  const addComment = () => { if (!comment.trim()) return; onUpdate({ ...proposal, comments: [...proposal.comments, { id: `comment-${Date.now()}`, author: 'יעל', body: comment.trim(), createdAt: new Date().toISOString() }] }); setComment('') }
+  const referencedRules = useMemo(() => editorialRules.filter((rule) => proposal.decision?.ruleIds?.includes(rule.id)), [editorialRules, proposal])
+  const addComment = () => { if (!comment.trim()) return; onUpdate({ ...proposal, comments: [...proposal.comments, { id: `comment-${Date.now()}`, author: currentUserName, body: comment.trim(), createdAt: new Date().toISOString() }] }); setComment('') }
   const decide = () => {
     if (!decisionMode || !decisionReason.trim()) return
-    onUpdate({ ...proposal, status: decisionMode, decision: { outcome: decisionMode, editor: 'העורך הראשי', reasoning: decisionReason.trim(), decidedAt: new Date().toISOString(), ruleIds: decisionMode === 'rejected' ? ['peshat'] : undefined } })
+    const decision: Decision = { outcome: decisionMode, editor: currentUserName, reasoning: decisionReason.trim(), decidedAt: new Date().toISOString() }
+    if (decisionMode === 'rejected') decision.ruleIds = ['peshat']
+    onUpdate({ ...proposal, status: decisionMode, decision })
     setDecisionMode(null); setDecisionReason('')
   }
   return <div className="page proposal-page">
