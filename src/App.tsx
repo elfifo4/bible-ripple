@@ -148,8 +148,8 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
   const [bibleChapter, setBibleChapter] = useState<BibleChapter | null>(null)
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   useEffect(() => { const bookRecord = passages.find((passage) => passage.book === book)!; let active = true; provider.getChapter(book, bookRecord.bookTitleHe, chapter).then((result) => { if (active) setBibleChapter(result) }); return () => { active = false } }, [book, chapter, provider])
-  const availableBooks = [...new Set(passages.map((passage) => passage.book))]
-  const availableChapters = [...new Set(passages.filter((passage) => passage.book === book).map((passage) => passage.chapter))]
+  const availableBooks = [...new Set([...passages].sort((a, b) => a.bookOrder - b.bookOrder).map((passage) => passage.book))]
+  const availableChapters = [...new Set(passages.filter((passage) => passage.book === book).map((passage) => passage.chapter))].sort((a, b) => a - b)
   const selected = passageById(selectedId)
   const selectedText = bibleChapter?.verses.find((verse) => passageStartVerse(verse.ref) === passageStartVerse(selected))?.text ?? selected.fallbackText
   const relatedRipples = ripples.filter((ripple) => ripple.members.some((member) => member.passageId === selectedId))

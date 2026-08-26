@@ -1,4 +1,5 @@
 import type { ContiguousPassageSelection, PassageRef, PassageSelection } from './domain'
+import { genesisOnePassages } from './genesisOneData'
 import { toHebrewNumeral } from './hebrewNumerals'
 
 export type MockPassageRecord = PassageRef & { fallbackText: string }
@@ -15,7 +16,7 @@ export const passageStartVerse = (passage: PassageRef): number => passage.select
 
 export const isSingleVerse = (selection: PassageSelection): selection is ContiguousPassageSelection & { endVerse?: undefined } => selection.kind === 'range' && selection.endVerse === undefined
 
-export const passages: MockPassageRecord[] = [
+const prototypePassages: MockPassageRecord[] = [
   ref('gen-1-1', 'Genesis 1:1', 'Genesis', 'בראשית', 1, 1, 1, 'בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ.'),
   ref('gen-1-2', 'Genesis 1:2', 'Genesis', 'בראשית', 1, 1, 2, 'וְהָאָרֶץ הָיְתָה תֹהוּ וָבֹהוּ וְחֹשֶׁךְ עַל פְּנֵי תְהוֹם; וְרוּחַ אֱלֹהִים מְרַחֶפֶת עַל פְּנֵי הַמָּיִם.'),
   ref('gen-1-3', 'Genesis 1:3', 'Genesis', 'בראשית', 1, 1, 3, 'וַיֹּאמֶר אֱלֹהִים יְהִי אוֹר; וַיְהִי אוֹר.'),
@@ -31,6 +32,10 @@ export const passages: MockPassageRecord[] = [
   ref('prov-20-7', 'Proverbs 20:7', 'Proverbs', 'משלי', 28, 20, 7, 'מִתְהַלֵּךְ בְּתֻמּוֹ צַדִּיק; אַשְׁרֵי בָנָיו אַחֲרָיו.'),
   ref('prov-20-1', 'Proverbs 20:1', 'Proverbs', 'משלי', 28, 20, 1, 'לֵץ הַיַּיִן הֹמֶה שֵׁכָר; וְכָל שֹׁגֶה בּוֹ לֹא יֶחְכָּם.'),
 ]
+
+export const passages: MockPassageRecord[] = [...new Map(
+  [...genesisOnePassages, ...prototypePassages].map((passage) => [passage.id, passage]),
+).values()]
 
 export const passageById = (id: string) => passages.find((passage) => passage.id === id)!
 export const referenceOf = (passage: PassageRef) => {
