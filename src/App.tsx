@@ -3,7 +3,7 @@ import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Rip
 import { liveBibleTextProvider, type BibleTextProvider } from './bibleTextProvider'
 import { isSingleVerse, passageById, passages, passageStartVerse, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
-import type { AccessRole, EditorAccess } from './editorialRepository'
+import { compareEditorAccess, type AccessRole, type EditorAccess } from './editorialRepository'
 
 type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string } | { kind: 'admin' }
 
@@ -115,7 +115,7 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
   const activeProposal = screen.kind === 'proposal' ? proposals.find((proposal) => proposal.id === screen.proposalId) : undefined
 
   const content = screen.kind === 'admin' && currentUserRole === 'admin' && onAddAuthorizedUser && onRemoveAuthorizedUser
-    ? <AdminView users={authorizedUsers} onBack={() => goBack(selectedId)} onAdd={async (email) => { const added = await onAddAuthorizedUser(email); setAuthorizedUsers((current) => [...current.filter((item) => item.email !== added.email), added].sort((a, b) => a.email.localeCompare(b.email))) }} onRemove={async (email) => { await onRemoveAuthorizedUser(email); setAuthorizedUsers((current) => current.filter((item) => item.email !== email)) }} />
+    ? <AdminView users={[...authorizedUsers].sort(compareEditorAccess)} onBack={() => goBack(selectedId)} onAdd={async (email) => { const added = await onAddAuthorizedUser(email); setAuthorizedUsers((current) => [...current.filter((item) => item.email !== added.email), added].sort(compareEditorAccess)) }} onRemove={async (email) => { await onRemoveAuthorizedUser(email); setAuthorizedUsers((current) => current.filter((item) => item.email !== email)) }} />
     : screen.kind === 'workspace'
     ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripplesData} returnLabel={returnLabel} onReturn={() => window.history.back()} onSelect={navigateToPassage} onRipple={openRipple} onProposal={openProposal} onNew={openNewProposal} />
     : screen.kind === 'ripple' && activeRipple

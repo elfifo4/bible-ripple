@@ -17,6 +17,11 @@ export type EditorAccess = {
   addedBy?: string
 }
 
+export const compareEditorAccess = (a: EditorAccess, b: EditorAccess): number => {
+  if (a.role !== b.role) return a.role === 'admin' ? -1 : 1
+  return a.email.localeCompare(b.email, 'en')
+}
+
 const readCollection = async <T>(name: string): Promise<T[]> => {
   const snapshot = await getDocs(collection(db, name))
   return snapshot.docs.map((item) => item.data() as T)
@@ -30,7 +35,7 @@ export async function getEditorAccess(email: string): Promise<EditorAccess | nul
 
 export async function loadEditorAccessList(): Promise<EditorAccess[]> {
   const snapshot = await getDocs(collection(db, 'editorAccess'))
-  return snapshot.docs.map((item) => ({ email: item.id, ...(item.data() as Omit<EditorAccess, 'email'>) })).sort((a, b) => a.email.localeCompare(b.email))
+  return snapshot.docs.map((item) => ({ email: item.id, ...(item.data() as Omit<EditorAccess, 'email'>) })).sort(compareEditorAccess)
 }
 
 export async function addEditorAccess(email: string, addedBy: string): Promise<EditorAccess> {

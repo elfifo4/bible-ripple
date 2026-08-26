@@ -157,15 +157,25 @@ describe('critical editorial workflow', () => {
       ripplesData={[]}
       initialProposals={[]}
       editorialRulesData={[]}
-      initialAuthorizedUsers={[{ email: 'admin@example.com', role: 'admin' }]}
+      initialAuthorizedUsers={[
+        { email: 'z-editor@example.com', role: 'editor' },
+        { email: 'z-admin@example.com', role: 'admin' },
+        { email: 'a-editor@example.com', role: 'editor' },
+        { email: 'a-admin@example.com', role: 'admin' },
+      ]}
       onAddAuthorizedUser={onAddAuthorizedUser}
       onRemoveAuthorizedUser={vi.fn().mockResolvedValue(undefined)}
       onSaveProposal={vi.fn().mockResolvedValue(undefined)}
     />)
 
     fireEvent.click(screen.getByRole('button', { name: 'ניהול' }))
-    expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'הסרה' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem').map((item) => item.querySelector('strong')?.textContent)).toEqual([
+      'a-admin@example.com',
+      'z-admin@example.com',
+      'a-editor@example.com',
+      'z-editor@example.com',
+    ])
+    expect(screen.getAllByRole('button', { name: 'הסרה' })).toHaveLength(2)
     fireEvent.change(screen.getByRole('textbox', { name: 'כתובת אימייל' }), { target: { value: 'NEW@EXAMPLE.COM' } })
     fireEvent.click(screen.getByRole('button', { name: 'הוספת עורך' }))
 
