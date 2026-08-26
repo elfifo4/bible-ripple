@@ -6,6 +6,29 @@ import { toHebrewNumeral } from './hebrewNumerals'
 
 type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string }
 
+type Route = { screen: Screen; passageId?: string }
+
+const defaultPassageId = 'gen-6-9'
+const passagePath = (id: string) => {
+  const passage = passageById(id)
+  return `/read/${passage.book}/${passage.chapter}/${passage.startVerse}`
+}
+
+const routeFromPath = (pathname: string): Route => {
+  const parts = pathname.split('/').filter(Boolean).map(decodeURIComponent)
+  if (parts[0] === 'read' && parts.length >= 4) {
+    const passage = passages.find((item) => item.book === parts[1] && item.chapter === Number(parts[2]) && item.startVerse === Number(parts[3]) && !item.endVerse)
+    if (passage) return { screen: { kind: 'workspace' }, passageId: passage.id }
+  }
+  if (parts[0] === 'ripples' && parts[1]) return { screen: { kind: 'ripple', rippleId: parts[1] } }
+  if (parts[0] === 'proposals' && parts[1] === 'new') {
+    const sourceId = new URLSearchParams(window.location.search).get('source')
+    if (sourceId && passages.some((item) => item.id === sourceId)) return { screen: { kind: 'new-proposal', sourceId } }
+  }
+  if (parts[0] === 'proposals' && parts[1]) return { screen: { kind: 'proposal', proposalId: parts[1] } }
+  return { screen: { kind: 'workspace' }, passageId: defaultPassageId }
+}
+
 const statusLabel: Record<Proposal['status'], string> = { draft: 'טיוטה', open: 'פתוחה לדיון', accepted: 'התקבלה', rejected: 'נדחתה' }
 const typeOptions = ['מקבילה תוכנית', 'המשך / השלמה', 'הסבר', 'ניגוד / מתח', 'מקבילה ספרותית', 'סיפור מקביל']
 
@@ -36,34 +59,69 @@ type AppProps = {
 }
 
 function App({ textProvider = liveBibleTextProvider, currentUserName, currentUserPhotoUrl, ripplesData, initialProposals, editorialRulesData, onSaveProposal, onSignOut }: AppProps) {
-  const [screen, setScreen] = useState<Screen>({ kind: 'workspace' })
-  const [book, setBook] = useState('Genesis')
-  const [chapter, setChapter] = useState(6)
-  const [selectedId, setSelectedId] = useState('gen-6-9')
+  const initialRoute = routeFromPath(window.location.pathname)
+  const initialPassage = passageById(initialRoute.passageId ?? defaultPassageId)
+  const [screen, setScreen] = useState<Screen>(initialRoute.screen)
+  const [book, setBook] = useState(initialPassage.book)
+  const [chapter, setChapter] = useState(initialPassage.chapter)
+  const [selectedId, setSelectedId] = useState(initialPassage.id)
+  const [returnLabel, setReturnLabel] = useState<string | null>(() => window.history.state?.returnLabel ?? null)
   const [proposals, setProposals] = useState(initialProposals)
 
-  const navigateToPassage = (id: string) => {
-    const passage = passageById(id)
-    setBook(passage.book)
-    setChapter(passage.chapter)
-    setSelectedId(id)
-    setScreen({ kind: 'workspace' })
+  const applyRoute = (route: Route, nextReturnLabel: string | null = null) => {
+    if (route.passageId) {
+      const passage = passageById(route.passageId)
+      setBook(passage.book)
+      setChapter(passage.chapter)
+      setSelectedId(passage.id)
+    }
+    setReturnLabel(nextReturnLabel)
+    setScreen(route.screen)
   }
 
+  useEffect(() => {
+    if (window.location.pathname === '/') window.history.replaceState({ bibleRipple: true }, '', passagePath(defaultPassageId))
+    const onPopState = (event: PopStateEvent) => applyRoute(routeFromPath(window.location.pathname), event.state?.returnLabel ?? null)
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const pushRoute = (path: string, route: Route, nextReturnLabel: string | null = null) => {
+    window.history.pushState({ bibleRipple: true, returnLabel: nextReturnLabel }, '', path)
+    applyRoute(route, nextReturnLabel)
+  }
+
+  const navigateToPassage = (id: string, nextReturnLabel: string | null = null) => {
+    pushRoute(passagePath(id), { screen: { kind: 'workspace' }, passageId: id }, nextReturnLabel)
+  }
+
+  const openRipple = (rippleId: string) => pushRoute(`/ripples/${encodeURIComponent(rippleId)}`, { screen: { kind: 'ripple', rippleId } })
+  const openProposal = (proposalId: string) => pushRoute(`/proposals/${encodeURIComponent(proposalId)}`, { screen: { kind: 'proposal', proposalId } })
+  const openNewProposal = () => pushRoute(`/proposals/new?source=${encodeURIComponent(selectedId)}`, { screen: { kind: 'new-proposal', sourceId: selectedId } })
+  const goBack = (fallbackPassageId: string) => {
+    if (window.history.state?.bibleRipple) window.history.back()
+    else navigateToPassage(fallbackPassageId)
+  }
+
+  const activeRipple = screen.kind === 'ripple' ? ripplesData.find((ripple) => ripple.id === screen.rippleId) : undefined
+  const activeProposal = screen.kind === 'proposal' ? proposals.find((proposal) => proposal.id === screen.proposalId) : undefined
+
   const content = screen.kind === 'workspace'
-    ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripplesData} onBook={setBook} onChapter={setChapter} onSelect={setSelectedId} onRipple={(rippleId) => setScreen({ kind: 'ripple', rippleId })} onProposal={(proposalId) => setScreen({ kind: 'proposal', proposalId })} onNew={() => setScreen({ kind: 'new-proposal', sourceId: selectedId })} />
-    : screen.kind === 'ripple'
-      ? <RippleView provider={textProvider} ripple={ripplesData.find((ripple) => ripple.id === screen.rippleId)!} onBack={() => setScreen({ kind: 'workspace' })} onNavigate={navigateToPassage} />
+    ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripplesData} returnLabel={returnLabel} onReturn={() => window.history.back()} onSelect={navigateToPassage} onRipple={openRipple} onProposal={openProposal} onNew={openNewProposal} />
+    : screen.kind === 'ripple' && activeRipple
+      ? <RippleView provider={textProvider} ripple={activeRipple} onBack={() => goBack(activeRipple.anchorPassageId ?? activeRipple.members[0].passageId)} onNavigate={(id) => navigateToPassage(id, 'חזרה לאדווה')} />
       : screen.kind === 'new-proposal'
-        ? <NewProposal provider={textProvider} sourceId={screen.sourceId} proposer={currentUserName} onCancel={() => setScreen({ kind: 'workspace' })} onSave={(proposal) => { setProposals((current) => [proposal, ...current]); void onSaveProposal(proposal); setScreen({ kind: 'proposal', proposalId: proposal.id }) }} />
-        : <ProposalView provider={textProvider} proposal={proposals.find((proposal) => proposal.id === screen.proposalId)!} currentUserName={currentUserName} editorialRules={editorialRulesData} onBack={() => setScreen({ kind: 'workspace' })} onUpdate={(updated) => { setProposals((current) => current.map((proposal) => proposal.id === updated.id ? updated : proposal)); void onSaveProposal(updated) }} />
+        ? <NewProposal provider={textProvider} sourceId={screen.sourceId} proposer={currentUserName} onCancel={() => goBack(screen.sourceId)} onSave={(proposal) => { setProposals((current) => [proposal, ...current]); void onSaveProposal(proposal); openProposal(proposal.id) }} />
+        : activeProposal
+          ? <ProposalView provider={textProvider} proposal={activeProposal} currentUserName={currentUserName} editorialRules={editorialRulesData} onBack={() => goBack(activeProposal.passageIds[0])} onUpdate={(updated) => { setProposals((current) => current.map((proposal) => proposal.id === updated.id ? updated : proposal)); void onSaveProposal(updated) }} />
+          : <NotFound onBack={() => navigateToPassage(selectedId)} />
 
   return <>
     <header className="app-header">
-      <button className="brand" onClick={() => setScreen({ kind: 'workspace' })}><img src={`${import.meta.env.BASE_URL}icon-256.png`} alt="" /> <span>אדוות התנ״ך <small>מרחב עריכה</small></span></button>
+      <button className="brand" onClick={() => navigateToPassage(selectedId)}><img src={`${import.meta.env.BASE_URL}icon-256.png`} alt="" /> <span>אדוות התנ״ך <small>ממשק עורכים</small></span></button>
       <nav aria-label="ניווט ראשי">
-        <button className={screen.kind === 'workspace' ? 'active' : ''} onClick={() => setScreen({ kind: 'workspace' })}>תנ״ך</button>
-        <button onClick={() => setScreen({ kind: 'proposal', proposalId: proposals.find((p) => p.status === 'open')?.id ?? proposals[0].id })}>הצעות <span className="count">{proposals.filter((p) => p.status === 'open').length}</span></button>
+        <button className={screen.kind === 'workspace' ? 'active' : ''} onClick={() => navigateToPassage(selectedId)}>תנ״ך</button>
+        <button disabled={!proposals.length} onClick={() => { const proposal = proposals.find((item) => item.status === 'open') ?? proposals[0]; if (proposal) openProposal(proposal.id) }}>הצעות <span className="count">{proposals.filter((p) => p.status === 'open').length}</span></button>
       </nav>
       <div className="user-menu">
         <div className="user-profile">
@@ -81,12 +139,12 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
 
 type WorkspaceProps = {
   provider: BibleTextProvider
-  book: string; chapter: number; selectedId: string; proposals: Proposal[]; ripples: Ripple[]
-  onBook: (value: string) => void; onChapter: (value: number) => void; onSelect: (id: string) => void
+  book: string; chapter: number; selectedId: string; proposals: Proposal[]; ripples: Ripple[]; returnLabel: string | null
+  onReturn: () => void; onSelect: (id: string) => void
   onRipple: (id: string) => void; onProposal: (id: string) => void; onNew: () => void
 }
 
-function Workspace({ provider, book, chapter, selectedId, proposals, ripples, onBook, onChapter, onSelect, onRipple, onProposal, onNew }: WorkspaceProps) {
+function Workspace({ provider, book, chapter, selectedId, proposals, ripples, returnLabel, onReturn, onSelect, onRipple, onProposal, onNew }: WorkspaceProps) {
   const [bibleChapter, setBibleChapter] = useState<BibleChapter | null>(null)
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   useEffect(() => { const bookRecord = passages.find((passage) => passage.book === book)!; let active = true; provider.getChapter(book, bookRecord.bookTitleHe, chapter).then((result) => { if (active) setBibleChapter(result) }); return () => { active = false } }, [book, chapter, provider])
@@ -96,21 +154,27 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, on
   const selectedText = bibleChapter?.verses.find((verse) => verse.ref.startVerse === selected.startVerse)?.text ?? selected.fallbackText
   const relatedRipples = ripples.filter((ripple) => ripple.members.some((member) => member.passageId === selectedId))
   const relatedProposals = proposals.filter((proposal) => proposal.passageIds.includes(selectedId))
+  const relatedSourceIds = new Set(relatedRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => id !== selectedId)))
+  const relatedSourceCount = relatedSourceIds.size
+  const rippleSummary = `${relatedRipples.length === 1 ? 'אדווה אחת' : `${relatedRipples.length} אדוות`} · ${relatedSourceCount === 1 ? 'מקור נוסף אחד' : `${relatedSourceCount} מקורות נוספים`}`
 
   return <div className="workspace">
     <section className="reader" aria-labelledby="chapter-title">
+      {returnLabel && <button className="context-return" onClick={onReturn}>→ {returnLabel}</button>}
       <div className="toolbar">
-        <label>ספר<select value={book} onChange={(event) => { const nextBook = event.target.value; const first = passages.find((p) => p.book === nextBook)!; onBook(nextBook); onChapter(first.chapter); onSelect(first.id) }}>{availableBooks.map((item) => <option key={item} value={item}>{passages.find((passage) => passage.book === item)!.bookTitleHe}</option>)}</select></label>
-        <label>פרק<select value={chapter} onChange={(event) => { const next = Number(event.target.value); onChapter(next); onSelect(passages.find((p) => p.book === book && p.chapter === next)!.id) }}>{availableChapters.map((item) => <option key={item} value={item}>{toHebrewNumeral(item)}</option>)}</select></label>
+        <label>ספר<select value={book} onChange={(event) => { const first = passages.find((item) => item.book === event.target.value)!; onSelect(first.id) }}>{availableBooks.map((item) => <option key={item} value={item}>{passages.find((passage) => passage.book === item)!.bookTitleHe}</option>)}</select></label>
+        <label>פרק<select value={chapter} onChange={(event) => { const next = Number(event.target.value); onSelect(passages.find((item) => item.book === book && item.chapter === next)!.id) }}>{availableChapters.map((item) => <option key={item} value={item}>{toHebrewNumeral(item)}</option>)}</select></label>
       </div>
       <div className="chapter-heading"><div><span className="eyebrow">קריאה בהקשר</span><h1 id="chapter-title">{selected.bookTitleHe} פרק {toHebrewNumeral(chapter)}</h1></div><span className="hint">בחרו פסוק כדי לראות אדוות</span></div>
       <div className="chapter-text">
         {!bibleChapter && <p className="loading">טוען את הפרק מספריא…</p>}
         {bibleChapter?.verses.map((verse) => {
           const knownPassage = passages.find((passage) => passage.book === book && passage.chapter === chapter && passage.startVerse === verse.ref.startVerse && !passage.endVerse)
-          const rippleCount = knownPassage ? ripples.filter((ripple) => ripple.members.some((member) => member.passageId === knownPassage.id)).length : 0
+          const verseRipples = knownPassage ? ripples.filter((ripple) => ripple.members.some((member) => member.passageId === knownPassage.id)) : []
+          const sourceCount = knownPassage ? new Set(verseRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => id !== knownPassage.id))).size : 0
+          const summary = `${verseRipples.length === 1 ? 'אדווה אחת' : `${verseRipples.length} אדוות`} · ${sourceCount === 1 ? 'מקור נוסף אחד' : `${sourceCount} מקורות נוספים`}`
           return <button key={verse.ref.canonicalRef} className={`verse ${knownPassage && selectedId === knownPassage.id ? 'selected' : ''}`} onClick={() => { if (knownPassage) { onSelect(knownPassage.id); setMobilePanelOpen(true) } }} aria-pressed={Boolean(knownPassage && selectedId === knownPassage.id)}>
-            <sup>{toHebrewNumeral(verse.ref.startVerse)}</sup> {verse.text} {rippleCount > 0 && <span className="ripple-marker" aria-label={`${rippleCount} אדוות`}><span className="marker-short">{rippleCount}</span><span className="marker-long">{rippleCount === 1 ? 'אדווה אחת' : `${rippleCount} אדוות`}</span></span>}
+            <sup>{toHebrewNumeral(verse.ref.startVerse)}</sup> {verse.text} {verseRipples.length > 0 && <span className="ripple-marker" aria-label={summary}><span className="marker-desktop">{summary}</span><span className="marker-mobile">{sourceCount === 1 ? 'מקור אחד' : `${sourceCount} מקורות`}</span></span>}
           </button>
         })}
       </div>
@@ -124,23 +188,43 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, on
       <p className="selected-text">{selectedText}</p>
       <button className="primary full" onClick={onNew}>+ הצעת אדווה</button>
       <section className="panel-section"><div className="section-title"><h3>אדוות מאושרות</h3><span>{relatedRipples.length}</span></div>
-        {relatedRipples.length ? relatedRipples.map((ripple) => <button className="list-card" key={ripple.id} onClick={() => onRipple(ripple.id)}><small>{ripple.type}</small><strong>{ripple.title}</strong><span>{ripple.members.length} מקורות ←</span></button>) : <p className="empty">אין אדוות מאושרות לפסוק זה.</p>}
+        {relatedRipples.length ? relatedRipples.map((ripple) => {
+          const anchor = passageById(ripple.anchorPassageId ?? ripple.members[0].passageId)
+          const additionalSources = ripple.members.filter((member) => member.passageId !== selectedId).length
+          return <button className="list-card" key={ripple.id} onClick={() => onRipple(ripple.id)}><small>{ripple.type}</small><strong>{ripple.title || referenceOf(anchor)}</strong><span>{additionalSources === 1 ? 'מקור נוסף אחד' : `${additionalSources} מקורות נוספים`} ←</span></button>
+        }) : <p className="empty">אין אדוות מאושרות לפסוק זה.</p>}
       </section>
       <section className="panel-section"><div className="section-title"><h3>הצעות והיסטוריה</h3><span>{relatedProposals.length}</span></div>
         {relatedProposals.map((proposal) => <button className="list-card" key={proposal.id} onClick={() => onProposal(proposal.id)}><small className={`status ${proposal.status}`}>{statusLabel[proposal.status]}</small><strong>{proposal.title}</strong><span>פתיחת ההצעה ←</span></button>)}
       </section>
     </aside>
-    {!mobilePanelOpen && <button className="mobile-ripple-bar" onClick={() => setMobilePanelOpen(true)}><span><strong>{referenceOf(selected)}</strong> · {relatedRipples.length === 1 ? 'אדווה אחת' : `${relatedRipples.length} אדוות`}</span><span>הצגה ↑</span></button>}
+    {!mobilePanelOpen && <button className="mobile-ripple-bar" onClick={() => setMobilePanelOpen(true)}><span><strong>{referenceOf(selected)}</strong> · {rippleSummary}</span><span>הצגה ↑</span></button>}
   </div>
 }
 
 function RippleView({ ripple, onBack, onNavigate, provider }: { ripple: Ripple; onBack: () => void; onNavigate: (id: string) => void; provider: BibleTextProvider }) {
+  const anchorId = ripple.anchorPassageId ?? ripple.members[0].passageId
+  const anchorMember = ripple.members.find((member) => member.passageId === anchorId)
+  const relatedMembers = ripple.members.filter((member) => member.passageId !== anchorId)
   return <div className="page narrow">
     <button className="back" onClick={onBack}>→ חזרה לפרק</button>
-    <span className="eyebrow">אדווה מאושרת · {ripple.type}</span><h1>{ripple.title}</h1><p className="lead">{ripple.explanation}</p>
-    <div className="section-title"><h2>מקורות משתתפים</h2><span>{ripple.members.length}</span></div>
-    <div className="stack">{ripple.members.map((member) => <PassageCard provider={provider} key={member.passageId} id={member.passageId} action={<><span className="role">{member.role}</span><button className="link" onClick={() => onNavigate(member.passageId)}>פתיחה בהקשר</button></>} />)}</div>
+    <span className="eyebrow">אדווה מאושרת · {ripple.type}</span>
+    <h1>{referenceOf(passageById(anchorId))}</h1>
+    {ripple.title && <p className="ripple-title">{ripple.title}</p>}
+    {ripple.explanation && <p className="lead">{ripple.explanation}</p>}
+    <section className="ripple-anchor" aria-labelledby="anchor-title">
+      <div className="section-title"><h2 id="anchor-title">פסוק העוגן</h2><span className="role">{anchorMember?.role ?? 'עוגן'}</span></div>
+      <PassageCard provider={provider} id={anchorId} action={<button className="link" onClick={() => onNavigate(anchorId)}>הצגה בתוך הפרק</button>} />
+    </section>
+    <section className="ripple-related" aria-labelledby="related-title">
+      <div className="section-title"><h2 id="related-title">מקורות מקבילים</h2><span>{relatedMembers.length}</span></div>
+      <div className="stack">{relatedMembers.map((member) => <PassageCard provider={provider} key={member.passageId} id={member.passageId} action={<><span className="role">{member.role}</span><button className="link" onClick={() => onNavigate(member.passageId)}>הצגה בתוך הפרק</button></>} />)}</div>
+    </section>
   </div>
+}
+
+function NotFound({ onBack }: { onBack: () => void }) {
+  return <div className="page narrow"><span className="eyebrow">ממשק עורכים</span><h1>העמוד לא נמצא</h1><p className="lead">ייתכן שהאדווה או ההצעה אינן זמינות עוד.</p><button className="primary" onClick={onBack}>חזרה לתנ״ך</button></div>
 }
 
 function NewProposal({ sourceId, proposer, onCancel, onSave, provider }: { sourceId: string; proposer: string; onCancel: () => void; onSave: (proposal: Proposal) => void; provider: BibleTextProvider }) {

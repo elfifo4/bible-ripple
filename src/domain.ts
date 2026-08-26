@@ -35,7 +35,7 @@ export type RippleMember = {
 
 export type Ripple = {
   id: string
-  title: string
+  title?: string
   type: string
   explanation?: string
   anchorPassageId?: Passage['id']
