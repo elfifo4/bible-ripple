@@ -1,5 +1,5 @@
 import type { BibleChapter, BiblePassage, PassageRef } from './domain'
-import { passages, type MockPassageRecord } from './mockData'
+import { isSingleVerse, passages, passageVerseNumbers, type MockPassageRecord } from './mockData'
 
 export const SEFARIA_VERSION = "Tanach with Ta'amei Hamikra"
 const SEFARIA_API = 'https://www.sefaria.org/api/v3/texts'
@@ -21,7 +21,7 @@ const passageRef = (book: string, bookTitleHe: string, chapter: number, verse: n
   bookTitleHe,
   bookOrder: 0,
   chapter,
-  startVerse: verse,
+  selection: { kind: 'range', startVerse: verse },
 })
 
 export class SefariaBibleTextProvider implements BibleTextProvider {
@@ -41,6 +41,17 @@ export class SefariaBibleTextProvider implements BibleTextProvider {
   }
 
   async getPassage(ref: PassageRef): Promise<BiblePassage> {
+    if (ref.selection.kind === 'verses') {
+      const data = await Promise.all(ref.selection.verses.map((verse) => this.fetch(`${ref.book} ${ref.chapter}:${verse}`)))
+      const versions = data.map((item) => item.versions[0])
+      return {
+        ref,
+        text: versions.map((version) => Array.isArray(version.text) ? version.text.join(' ') : version.text).join(' […] '),
+        source: 'sefaria',
+        versionTitle: versions[0].versionTitle,
+        license: versions[0].license ?? 'Public Domain',
+      }
+    }
     const data = await this.fetch(ref.canonicalRef)
     const version = data.versions[0]
     return { ref: { ...ref, canonicalRef: data.ref }, text: Array.isArray(version.text) ? version.text.join(' ') : version.text, source: 'sefaria', versionTitle: version.versionTitle, license: version.license ?? 'Public Domain' }
@@ -57,11 +68,12 @@ export class SefariaBibleTextProvider implements BibleTextProvider {
 export class MockBibleTextProvider implements BibleTextProvider {
   async getPassage(ref: PassageRef): Promise<BiblePassage> {
     const record = passages.find((item) => item.canonicalRef === ref.canonicalRef) as MockPassageRecord | undefined
-    return { ref, text: record?.fallbackText ?? 'הטקסט אינו זמין במצב המקומי.', source: 'mock', versionTitle: 'Local prototype fallback', license: 'Prototype data' }
+    const fallback = passageVerseNumbers(ref).map((verse) => passages.find((item) => item.book === ref.book && item.chapter === ref.chapter && isSingleVerse(item.selection) && item.selection.startVerse === verse)?.fallbackText).filter(Boolean).join(' […] ')
+    return { ref, text: record?.fallbackText ?? (fallback || 'הטקסט אינו זמין במצב המקומי.'), source: 'mock', versionTitle: 'Local prototype fallback', license: 'Prototype data' }
   }
 
   async getChapter(book: string, bookTitleHe: string, chapter: number): Promise<BibleChapter> {
-    const records = passages.filter((item) => item.book === book && item.chapter === chapter && !item.endVerse)
+    const records = passages.filter((item) => item.book === book && item.chapter === chapter && isSingleVerse(item.selection))
     return { book, bookTitleHe, chapter, source: 'mock', verses: records.map((record) => ({ ref: record, text: record.fallbackText, source: 'mock', versionTitle: 'Local prototype fallback', license: 'Prototype data' })) }
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Ripple } from './domain'
 import { liveBibleTextProvider, type BibleTextProvider } from './bibleTextProvider'
-import { passageById, passages, referenceOf } from './mockData'
+import { isSingleVerse, passageById, passages, passageStartVerse, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
 
 type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string }
@@ -11,13 +11,13 @@ type Route = { screen: Screen; passageId?: string }
 const defaultPassageId = 'gen-6-9'
 const passagePath = (id: string) => {
   const passage = passageById(id)
-  return `/read/${passage.book}/${passage.chapter}/${passage.startVerse}`
+  return `/read/${passage.book}/${passage.chapter}/${passageStartVerse(passage)}`
 }
 
 const routeFromPath = (pathname: string): Route => {
   const parts = pathname.split('/').filter(Boolean).map(decodeURIComponent)
   if (parts[0] === 'read' && parts.length >= 4) {
-    const passage = passages.find((item) => item.book === parts[1] && item.chapter === Number(parts[2]) && item.startVerse === Number(parts[3]) && !item.endVerse)
+    const passage = passages.find((item) => item.book === parts[1] && item.chapter === Number(parts[2]) && isSingleVerse(item.selection) && item.selection.startVerse === Number(parts[3]))
     if (passage) return { screen: { kind: 'workspace' }, passageId: passage.id }
   }
   if (parts[0] === 'ripples' && parts[1]) return { screen: { kind: 'ripple', rippleId: parts[1] } }
@@ -151,7 +151,7 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
   const availableBooks = [...new Set(passages.map((passage) => passage.book))]
   const availableChapters = [...new Set(passages.filter((passage) => passage.book === book).map((passage) => passage.chapter))]
   const selected = passageById(selectedId)
-  const selectedText = bibleChapter?.verses.find((verse) => verse.ref.startVerse === selected.startVerse)?.text ?? selected.fallbackText
+  const selectedText = bibleChapter?.verses.find((verse) => passageStartVerse(verse.ref) === passageStartVerse(selected))?.text ?? selected.fallbackText
   const relatedRipples = ripples.filter((ripple) => ripple.members.some((member) => member.passageId === selectedId))
   const relatedProposals = proposals.filter((proposal) => proposal.passageIds.includes(selectedId))
   const relatedSourceIds = new Set(relatedRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => id !== selectedId)))
@@ -169,12 +169,13 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
       <div className="chapter-text">
         {!bibleChapter && <p className="loading">טוען את הפרק מספריא…</p>}
         {bibleChapter?.verses.map((verse) => {
-          const knownPassage = passages.find((passage) => passage.book === book && passage.chapter === chapter && passage.startVerse === verse.ref.startVerse && !passage.endVerse)
+          const verseNumber = passageStartVerse(verse.ref)
+          const knownPassage = passages.find((passage) => passage.book === book && passage.chapter === chapter && isSingleVerse(passage.selection) && passage.selection.startVerse === verseNumber)
           const verseRipples = knownPassage ? ripples.filter((ripple) => ripple.members.some((member) => member.passageId === knownPassage.id)) : []
           const sourceCount = knownPassage ? new Set(verseRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => id !== knownPassage.id))).size : 0
           const summary = `${verseRipples.length === 1 ? 'אדווה אחת' : `${verseRipples.length} אדוות`} · ${sourceCount === 1 ? 'מקור נוסף אחד' : `${sourceCount} מקורות נוספים`}`
           return <button key={verse.ref.canonicalRef} className={`verse ${knownPassage && selectedId === knownPassage.id ? 'selected' : ''}`} onClick={() => { if (knownPassage) { onSelect(knownPassage.id); setMobilePanelOpen(true) } }} aria-pressed={Boolean(knownPassage && selectedId === knownPassage.id)}>
-            <sup>{toHebrewNumeral(verse.ref.startVerse)}</sup> {verse.text} {verseRipples.length > 0 && <span className="ripple-marker" aria-label={summary}><span className="marker-desktop">{summary}</span><span className="marker-mobile">{sourceCount === 1 ? 'מקור אחד' : `${sourceCount} מקורות`}</span></span>}
+            <sup>{toHebrewNumeral(verseNumber)}</sup> {verse.text} {verseRipples.length > 0 && <span className="ripple-marker" aria-label={summary}><span className="marker-desktop">{summary}</span><span className="marker-mobile">{sourceCount === 1 ? 'מקור אחד' : `${sourceCount} מקורות`}</span></span>}
           </button>
         })}
       </div>

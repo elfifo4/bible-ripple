@@ -1,3 +1,16 @@
+export type ContiguousPassageSelection = {
+  kind: 'range'
+  startVerse: number
+  endVerse?: number
+}
+
+export type DiscretePassageSelection = {
+  kind: 'verses'
+  verses: [number, ...number[]]
+}
+
+export type PassageSelection = ContiguousPassageSelection | DiscretePassageSelection
+
 export type PassageRef = {
   id: string
   canonicalRef: string
@@ -5,8 +18,7 @@ export type PassageRef = {
   bookTitleHe: string
   bookOrder: number
   chapter: number
-  startVerse: number
-  endVerse?: number
+  selection: PassageSelection
 }
 
 export type Passage = PassageRef

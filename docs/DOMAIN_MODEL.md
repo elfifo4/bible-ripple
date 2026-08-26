@@ -18,6 +18,7 @@ A Passage may represent:
 
 - one verse;
 - multiple consecutive verses;
+- a discrete collection of verses from one chapter;
 - a larger narrative section.
 
 Do NOT model the domain around verses only.
@@ -29,6 +30,17 @@ Genesis 1:1
 Genesis 24:1-27
 
 Genesis 24:34-48
+
+Psalms 104:2,5
+
+### Passage selection
+
+A Passage uses a closed, discriminated selection type:
+
+- `range` — one verse or a contiguous range;
+- `verses` — a non-empty, discrete collection of verse numbers from the same chapter.
+
+This distinction prevents a citation such as Psalms 104:2,5 from being misrepresented as Psalms 104:2-5. A discrete selection is displayed as one editorial source, while its individual verses remain explicit. Collections that span more than one chapter should be represented by multiple Passage members rather than stretching this type beyond a single chapter.
 
 ---
 

@@ -1,9 +1,19 @@
-import type { PassageRef } from './domain'
+import type { ContiguousPassageSelection, PassageRef, PassageSelection } from './domain'
 import { toHebrewNumeral } from './hebrewNumerals'
 
 export type MockPassageRecord = PassageRef & { fallbackText: string }
 
-const ref = (id: string, canonicalRef: string, book: string, bookTitleHe: string, bookOrder: number, chapter: number, startVerse: number, fallbackText: string, endVerse?: number): MockPassageRecord => ({ id, canonicalRef, book, bookTitleHe, bookOrder, chapter, startVerse, endVerse, fallbackText })
+const ref = (id: string, canonicalRef: string, book: string, bookTitleHe: string, bookOrder: number, chapter: number, startVerse: number, fallbackText: string, endVerse?: number): MockPassageRecord => ({ id, canonicalRef, book, bookTitleHe, bookOrder, chapter, selection: { kind: 'range', startVerse, endVerse }, fallbackText })
+
+export const passageVerseNumbers = (passage: PassageRef): number[] => {
+  const selection = passage.selection
+  if (selection.kind === 'verses') return selection.verses
+  return Array.from({ length: (selection.endVerse ?? selection.startVerse) - selection.startVerse + 1 }, (_, index) => selection.startVerse + index)
+}
+
+export const passageStartVerse = (passage: PassageRef): number => passage.selection.kind === 'range' ? passage.selection.startVerse : passage.selection.verses[0]
+
+export const isSingleVerse = (selection: PassageSelection): selection is ContiguousPassageSelection & { endVerse?: undefined } => selection.kind === 'range' && selection.endVerse === undefined
 
 export const passages: MockPassageRecord[] = [
   ref('gen-1-1', 'Genesis 1:1', 'Genesis', 'בראשית', 1, 1, 1, 'בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ.'),
@@ -23,4 +33,9 @@ export const passages: MockPassageRecord[] = [
 ]
 
 export const passageById = (id: string) => passages.find((passage) => passage.id === id)!
-export const referenceOf = (passage: PassageRef) => `${passage.bookTitleHe} ${toHebrewNumeral(passage.chapter)}:${toHebrewNumeral(passage.startVerse)}${passage.endVerse ? `–${toHebrewNumeral(passage.endVerse)}` : ''}`
+export const referenceOf = (passage: PassageRef) => {
+  const verses = passage.selection.kind === 'range'
+    ? `${toHebrewNumeral(passage.selection.startVerse)}${passage.selection.endVerse ? `–${toHebrewNumeral(passage.selection.endVerse)}` : ''}`
+    : passage.selection.verses.map(toHebrewNumeral).join(', ')
+  return `${passage.bookTitleHe} ${toHebrewNumeral(passage.chapter)}:${verses}`
+}
