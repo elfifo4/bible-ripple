@@ -92,6 +92,6 @@ Authentication and Firestore rules are configured in `firebase.json` and `firest
 firebase deploy --only auth,firestore:rules --project bible-ripple
 ```
 
-The editorial collections are `ripples`, `proposals`, and `editorialRules`. Access is granted by a server-managed document at `editorAccess/{lowercase-email}`. Never place private editorial data or service-account credentials in this public repository.
+The editorial collections are `ripples`, `proposals`, and `editorialRules`. Access is granted by a document at `editorAccess/{lowercase-email}` with the role `admin` or `editor`. Administrators can manage editor access from the protected management screen; administrator records can only be changed out of band. Never place private editorial data or service-account credentials in this public repository.
 
 No license has been added. The project owner should choose a software and content license separately before publication.

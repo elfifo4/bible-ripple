@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
 import type { EditorialRule, Proposal, Ripple } from './domain'
 import { db } from './firebaseClient'
 
@@ -8,14 +8,40 @@ export type EditorialContent = {
   editorialRules: EditorialRule[]
 }
 
+export type AccessRole = 'admin' | 'editor'
+
+export type EditorAccess = {
+  email: string
+  role: AccessRole
+  addedAt?: string
+  addedBy?: string
+}
+
 const readCollection = async <T>(name: string): Promise<T[]> => {
   const snapshot = await getDocs(collection(db, name))
   return snapshot.docs.map((item) => item.data() as T)
 }
 
-export async function isEditorAllowed(email: string): Promise<boolean> {
+export async function getEditorAccess(email: string): Promise<EditorAccess | null> {
   const access = await getDoc(doc(db, 'editorAccess', email.toLowerCase()))
-  return access.exists()
+  if (!access.exists()) return null
+  return { email: access.id, ...(access.data() as Omit<EditorAccess, 'email'>) }
+}
+
+export async function loadEditorAccessList(): Promise<EditorAccess[]> {
+  const snapshot = await getDocs(collection(db, 'editorAccess'))
+  return snapshot.docs.map((item) => ({ email: item.id, ...(item.data() as Omit<EditorAccess, 'email'>) })).sort((a, b) => a.email.localeCompare(b.email))
+}
+
+export async function addEditorAccess(email: string, addedBy: string): Promise<EditorAccess> {
+  const normalizedEmail = email.trim().toLowerCase()
+  const access: EditorAccess = { email: normalizedEmail, role: 'editor', addedAt: new Date().toISOString(), addedBy }
+  await setDoc(doc(db, 'editorAccess', normalizedEmail), { role: access.role, addedAt: access.addedAt, addedBy: access.addedBy })
+  return access
+}
+
+export async function removeEditorAccess(email: string): Promise<void> {
+  await deleteDoc(doc(db, 'editorAccess', email.toLowerCase()))
 }
 
 export async function loadEditorialContent(): Promise<EditorialContent> {

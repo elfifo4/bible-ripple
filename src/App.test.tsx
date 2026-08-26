@@ -147,4 +147,30 @@ describe('critical editorial workflow', () => {
     expect(savedProposal).not.toHaveProperty('decision')
     expect(savedProposal.history?.[0]).toEqual(expect.objectContaining({ kind: 'reopened', previousDecision: acceptedProposal.decision }))
   })
+
+  it('allows administrators to add editors without exposing admin removal', async () => {
+    const onAddAuthorizedUser = vi.fn().mockResolvedValue({ email: 'new@example.com', role: 'editor' })
+    render(<App
+      textProvider={new MockBibleTextProvider()}
+      currentUserName="מנהל"
+      currentUserRole="admin"
+      ripplesData={[]}
+      initialProposals={[]}
+      editorialRulesData={[]}
+      initialAuthorizedUsers={[{ email: 'admin@example.com', role: 'admin' }]}
+      onAddAuthorizedUser={onAddAuthorizedUser}
+      onRemoveAuthorizedUser={vi.fn().mockResolvedValue(undefined)}
+      onSaveProposal={vi.fn().mockResolvedValue(undefined)}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'ניהול' }))
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'הסרה' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'כתובת אימייל' }), { target: { value: 'NEW@EXAMPLE.COM' } })
+    fireEvent.click(screen.getByRole('button', { name: 'הוספת עורך' }))
+
+    expect(await screen.findByText('new@example.com נוסף לרשימת העורכים.')).toBeInTheDocument()
+    expect(onAddAuthorizedUser).toHaveBeenCalledWith('new@example.com')
+    expect(screen.getByText('new@example.com')).toBeInTheDocument()
+  })
 })

@@ -3,8 +3,9 @@ import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Rip
 import { liveBibleTextProvider, type BibleTextProvider } from './bibleTextProvider'
 import { isSingleVerse, passageById, passages, passageStartVerse, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
+import type { AccessRole, EditorAccess } from './editorialRepository'
 
-type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string }
+type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string } | { kind: 'admin' }
 
 type Route = { screen: Screen; passageId?: string }
 
@@ -26,6 +27,7 @@ const routeFromPath = (pathname: string): Route => {
     if (sourceId && passages.some((item) => item.id === sourceId)) return { screen: { kind: 'new-proposal', sourceId } }
   }
   if (parts[0] === 'proposals' && parts[1]) return { screen: { kind: 'proposal', proposalId: parts[1] } }
+  if (parts[0] === 'admin') return { screen: { kind: 'admin' } }
   return { screen: { kind: 'workspace' }, passageId: defaultPassageId }
 }
 
@@ -54,11 +56,15 @@ type AppProps = {
   ripplesData: Ripple[]
   initialProposals: Proposal[]
   editorialRulesData: EditorialRule[]
+  currentUserRole?: AccessRole
+  initialAuthorizedUsers?: EditorAccess[]
+  onAddAuthorizedUser?: (email: string) => Promise<EditorAccess>
+  onRemoveAuthorizedUser?: (email: string) => Promise<void>
   onSaveProposal: (proposal: Proposal) => Promise<void>
   onSignOut?: () => void
 }
 
-function App({ textProvider = liveBibleTextProvider, currentUserName, currentUserPhotoUrl, ripplesData, initialProposals, editorialRulesData, onSaveProposal, onSignOut }: AppProps) {
+function App({ textProvider = liveBibleTextProvider, currentUserName, currentUserPhotoUrl, ripplesData, initialProposals, editorialRulesData, currentUserRole = 'editor', initialAuthorizedUsers = [], onAddAuthorizedUser, onRemoveAuthorizedUser, onSaveProposal, onSignOut }: AppProps) {
   const initialRoute = routeFromPath(window.location.pathname)
   const initialPassage = passageById(initialRoute.passageId ?? defaultPassageId)
   const [screen, setScreen] = useState<Screen>(initialRoute.screen)
@@ -67,6 +73,7 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
   const [selectedId, setSelectedId] = useState(initialPassage.id)
   const [returnLabel, setReturnLabel] = useState<string | null>(() => window.history.state?.returnLabel ?? null)
   const [proposals, setProposals] = useState(initialProposals)
+  const [authorizedUsers, setAuthorizedUsers] = useState(initialAuthorizedUsers)
 
   const applyRoute = (route: Route, nextReturnLabel: string | null = null) => {
     if (route.passageId) {
@@ -98,6 +105,7 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
   const openRipple = (rippleId: string) => pushRoute(`/ripples/${encodeURIComponent(rippleId)}`, { screen: { kind: 'ripple', rippleId } })
   const openProposal = (proposalId: string) => pushRoute(`/proposals/${encodeURIComponent(proposalId)}`, { screen: { kind: 'proposal', proposalId } })
   const openNewProposal = () => pushRoute(`/proposals/new?source=${encodeURIComponent(selectedId)}`, { screen: { kind: 'new-proposal', sourceId: selectedId } })
+  const openAdmin = () => pushRoute('/admin', { screen: { kind: 'admin' } })
   const goBack = (fallbackPassageId: string) => {
     if (window.history.state?.bibleRipple) window.history.back()
     else navigateToPassage(fallbackPassageId)
@@ -106,7 +114,9 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
   const activeRipple = screen.kind === 'ripple' ? ripplesData.find((ripple) => ripple.id === screen.rippleId) : undefined
   const activeProposal = screen.kind === 'proposal' ? proposals.find((proposal) => proposal.id === screen.proposalId) : undefined
 
-  const content = screen.kind === 'workspace'
+  const content = screen.kind === 'admin' && currentUserRole === 'admin' && onAddAuthorizedUser && onRemoveAuthorizedUser
+    ? <AdminView users={authorizedUsers} onBack={() => goBack(selectedId)} onAdd={async (email) => { const added = await onAddAuthorizedUser(email); setAuthorizedUsers((current) => [...current.filter((item) => item.email !== added.email), added].sort((a, b) => a.email.localeCompare(b.email))) }} onRemove={async (email) => { await onRemoveAuthorizedUser(email); setAuthorizedUsers((current) => current.filter((item) => item.email !== email)) }} />
+    : screen.kind === 'workspace'
     ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripplesData} returnLabel={returnLabel} onReturn={() => window.history.back()} onSelect={navigateToPassage} onRipple={openRipple} onProposal={openProposal} onNew={openNewProposal} />
     : screen.kind === 'ripple' && activeRipple
       ? <RippleView provider={textProvider} ripple={activeRipple} onBack={() => goBack(activeRipple.anchorPassageId ?? activeRipple.members[0].passageId)} onNavigate={(id) => navigateToPassage(id, 'חזרה לאדווה')} />
@@ -122,6 +132,7 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
       <nav aria-label="ניווט ראשי">
         <button className={screen.kind === 'workspace' ? 'active' : ''} onClick={() => navigateToPassage(selectedId)}>תנ״ך</button>
         <button disabled={!proposals.length} onClick={() => { const proposal = proposals.find((item) => item.status === 'open') ?? proposals[0]; if (proposal) openProposal(proposal.id) }}>הצעות <span className="count">{proposals.filter((p) => p.status === 'open').length}</span></button>
+        {currentUserRole === 'admin' && <button className={screen.kind === 'admin' ? 'active' : ''} onClick={openAdmin}>ניהול</button>}
       </nav>
       <div className="user-menu">
         <div className="user-profile">
@@ -135,6 +146,36 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
     </header>
     <main>{content}</main>
   </>
+}
+
+function AdminView({ users, onBack, onAdd, onRemove }: { users: EditorAccess[]; onBack: () => void; onAdd: (email: string) => Promise<void>; onRemove: (email: string) => Promise<void> }) {
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) { setMessage('יש להזין כתובת אימייל תקינה.'); return }
+    setBusy(true); setMessage(null)
+    try { await onAdd(normalizedEmail); setEmail(''); setMessage(`${normalizedEmail} נוסף לרשימת העורכים.`) }
+    catch { setMessage('לא ניתן היה להוסיף את המשתמש. ייתכן שהכתובת כבר משויכת לתפקיד מוגן.') }
+    finally { setBusy(false) }
+  }
+  const remove = async (user: EditorAccess) => {
+    if (!window.confirm(`להסיר את ${user.email} מרשימת העורכים?`)) return
+    setBusy(true); setMessage(null)
+    try { await onRemove(user.email); setMessage(`${user.email} הוסר מרשימת העורכים.`) }
+    catch { setMessage('לא ניתן היה להסיר את המשתמש.') }
+    finally { setBusy(false) }
+  }
+  return <div className="page narrow admin-page">
+    <button className="back" onClick={onBack}>→ חזרה למרחב התנ״ך</button>
+    <span className="eyebrow">ניהול הרשאות</span><h1>עורכים מורשים</h1>
+    <p className="lead">רק הכתובות ברשימה יכולות להיכנס למרחב העריכה באמצעות חשבון Google מאומת.</p>
+    <form className="access-form" onSubmit={(event) => void submit(event)}><label className="field">כתובת אימייל<input type="email" dir="ltr" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" /></label><button className="primary" disabled={busy || !email.trim()} type="submit">הוספת עורך</button></form>
+    {message && <p className="form-message" role="status">{message}</p>}
+    <ul className="access-list">{users.map((user) => <li key={user.email}><div><strong dir="ltr">{user.email}</strong><span>{user.role === 'admin' ? 'מנהל' : 'עורך'}</span></div>{user.role === 'editor' && <button disabled={busy} onClick={() => void remove(user)}>הסרה</button>}</li>)}</ul>
+  </div>
 }
 
 type WorkspaceProps = {

@@ -8,11 +8,23 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/editorAccess/$(request.auth.token.email));
     }
 
+    function isAdmin() {
+      return isAllowedEditor()
+        && get(/databases/$(database)/documents/editorAccess/$(request.auth.token.email)).data.role == 'admin';
+    }
+
     match /editorAccess/{email} {
-      allow read: if request.auth != null
+      allow read: if isAdmin() || (request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == email;
-      allow write: if false;
+        && request.auth.token.email == email);
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['role', 'addedAt', 'addedBy'])
+        && request.resource.data.role == 'editor';
+      allow update: if isAdmin()
+        && resource.data.role == 'editor'
+        && request.resource.data.keys().hasOnly(['role', 'addedAt', 'addedBy'])
+        && request.resource.data.role == 'editor';
+      allow delete: if isAdmin() && resource.data.role == 'editor';
     }
 
     match /ripples/{document=**} {

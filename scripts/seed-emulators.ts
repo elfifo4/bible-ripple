@@ -46,7 +46,10 @@ try {
 }
 
 const batch = db.batch()
-batch.set(db.doc(`editorAccess/${email}`), { role: 'editor', localOnly: true })
+batch.set(db.doc(`editorAccess/${email}`), { role: 'admin', localOnly: true })
+batch.set(db.doc('editorAccess/elfifo4@gmail.com'), { role: 'admin' })
+batch.set(db.doc('editorAccess/yiramne@gmail.com'), { role: 'admin' })
+batch.set(db.doc('editorAccess/y_shaki@hotmail.com'), { role: 'editor', addedBy: 'elfifo4@gmail.com', addedAt: '2026-08-26T00:00:00.000Z' })
 for (const ripple of genesisOneRipples) batch.set(db.doc(`ripples/${ripple.id}`), ripple)
 batch.set(db.doc(`proposals/${acceptedProposal.id}`), acceptedProposal)
 await batch.commit()

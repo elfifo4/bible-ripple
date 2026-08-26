@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth'
 import App from './App'
-import { loadEditorialContent, isEditorAllowed, type EditorialContent, saveProposal } from './editorialRepository'
+import { addEditorAccess, getEditorAccess, loadEditorialContent, loadEditorAccessList, removeEditorAccess, type EditorialContent, type EditorAccess, saveProposal } from './editorialRepository'
 import { auth, googleProvider, usingFirebaseEmulators } from './firebaseClient'
 
 const LOCAL_TEST_EMAIL = 'codex-test@bible-ripple.local'
@@ -12,7 +12,7 @@ type GateState =
   | { kind: 'signed-out' }
   | { kind: 'forbidden'; user: User }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; user: User; content: EditorialContent }
+  | { kind: 'ready'; user: User; content: EditorialContent; access: EditorAccess; authorizedUsers: EditorAccess[] }
 
 const displayName = (user: User) => user.displayName || user.email || 'עורך'
 
@@ -27,11 +27,16 @@ export default function FirebaseGate() {
     }
     setState({ kind: 'loading' })
     try {
-      if (!user.emailVerified || !await isEditorAllowed(user.email)) {
+      const access = user.emailVerified ? await getEditorAccess(user.email) : null
+      if (!access) {
         setState({ kind: 'forbidden', user })
         return
       }
-      setState({ kind: 'ready', user, content: await loadEditorialContent() })
+      const [content, authorizedUsers] = await Promise.all([
+        loadEditorialContent(),
+        access.role === 'admin' ? loadEditorAccessList() : Promise.resolve([]),
+      ])
+      setState({ kind: 'ready', user, content, access, authorizedUsers })
     } catch {
       setState({ kind: 'error', message: 'לא ניתן לטעון כעת את מרחב העריכה.' })
     }
@@ -73,6 +78,10 @@ export default function FirebaseGate() {
     ripplesData={state.content.ripples}
     initialProposals={state.content.proposals}
     editorialRulesData={state.content.editorialRules}
+    currentUserRole={state.access.role}
+    initialAuthorizedUsers={state.authorizedUsers}
+    onAddAuthorizedUser={(email) => addEditorAccess(email, state.user.email!)}
+    onRemoveAuthorizedUser={removeEditorAccess}
     onSaveProposal={saveProposal}
     onSignOut={() => void signOut(auth)}
   />
