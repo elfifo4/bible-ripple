@@ -182,7 +182,7 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
       <p className="text-source">טקסט: ספריא · {bibleChapter?.source === 'sefaria' ? "Tanach with Ta'amei Hamikra · נחלת הכלל" : 'מצב מקומי זמני'}</p>
     </section>
     {mobilePanelOpen && <button className="panel-backdrop" aria-label="סגירת פאנל האדוות" onClick={() => setMobilePanelOpen(false)} />}
-    <aside className={`side-panel ${mobilePanelOpen ? 'mobile-open' : ''}`} aria-labelledby="selection-title">
+    <aside key={selectedId} className={`side-panel ${mobilePanelOpen ? 'mobile-open' : ''}`} aria-labelledby="selection-title" aria-live="polite">
       <button className="panel-close" aria-label="סגירת פאנל האדוות" onClick={() => setMobilePanelOpen(false)}>×</button>
       <span className="eyebrow">הפסוק הנבחר</span>
       <h2 id="selection-title">{referenceOf(selected)}</h2>
