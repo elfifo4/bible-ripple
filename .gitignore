@@ -3,6 +3,7 @@ dist/
 .firebase/
 *-debug.log
 .vite/
+.idea/
 .DS_Store
 .env
 .env.*
