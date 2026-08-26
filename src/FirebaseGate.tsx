@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth'
+import { onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth'
 import App from './App'
 import { loadEditorialContent, isEditorAllowed, type EditorialContent, saveProposal } from './editorialRepository'
-import { auth, googleProvider } from './firebaseClient'
+import { auth, googleProvider, usingFirebaseEmulators } from './firebaseClient'
+
+const LOCAL_TEST_EMAIL = 'codex-test@bible-ripple.local'
+const LOCAL_TEST_PASSWORD = 'local-test-only'
 
 type GateState =
   | { kind: 'loading' }
@@ -46,8 +49,21 @@ export default function FirebaseGate() {
     }
   }
 
+  const signInLocally = async () => {
+    setSigningIn(true)
+    try {
+      await signInWithEmailAndPassword(auth, LOCAL_TEST_EMAIL, LOCAL_TEST_PASSWORD)
+    } catch {
+      setSigningIn(false)
+      setState({ kind: 'error', message: 'הכניסה המקומית נכשלה. ודאו שהאמולטורים נזרעו ופועלים.' })
+    }
+  }
+
   if (state.kind === 'loading') return <GateCard title="טוען את מרחב העריכה…" />
-  if (state.kind === 'signed-out') return <GateCard title="אדוות התנ״ך" body="מרחב העריכה זמין לעורכים מורשים בלבד."><button className="google-sign-in" disabled={signingIn} onClick={() => void signIn()}>{signingIn ? 'מעביר ל־Google…' : 'כניסה עם Google'}</button></GateCard>
+  if (state.kind === 'signed-out') return <GateCard title="אדוות התנ״ך" body="מרחב העריכה זמין לעורכים מורשים בלבד.">
+    <button className="google-sign-in" disabled={signingIn} onClick={() => void signIn()}>{signingIn ? 'מתחבר…' : 'כניסה עם Google'}</button>
+    {usingFirebaseEmulators && <button className="local-test-sign-in" disabled={signingIn} onClick={() => void signInLocally()}>כניסת בדיקה מקומית</button>}
+  </GateCard>
   if (state.kind === 'forbidden') return <GateCard title="אין הרשאה" body={`החשבון ${state.user.email ?? ''} אינו מורשה להיכנס למרחב העריכה.`}><button onClick={() => void signOut(auth)}>יציאה ובחירת חשבון אחר</button></GateCard>
   if (state.kind === 'error') return <GateCard title="משהו השתבש" body={state.message}><button onClick={() => window.location.reload()}>ניסיון נוסף</button></GateCard>
 

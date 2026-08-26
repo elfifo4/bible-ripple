@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:test": "VITE_USE_FIREBASE_EMULATORS=true npx --yes firebase-tools@15.19.1 emulators:exec --only auth,firestore \"npm run emulators:seed && vite --host 127.0.0.1\"",
+    "emulators:seed": "tsx scripts/seed-emulators.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
@@ -22,6 +24,7 @@
   "devDependencies": {
     "@eslint/js": "latest",
     "@firebase/rules-unit-testing": "^5.0.2",
+    "@opentelemetry/api": "^1.9.1",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@types/react": "latest",
@@ -29,8 +32,10 @@
     "eslint": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
+    "firebase-admin": "^14.3.0",
     "globals": "latest",
     "jsdom": "latest",
+    "tsx": "^4.23.12",
     "typescript-eslint": "latest",
     "vitest": "latest"
   }

@@ -57,6 +57,14 @@ npm run dev
 
 Vite prints the local URL, usually `http://localhost:5173/`. Google sign-in requires the local domain to be authorized in Firebase Authentication.
 
+For a complete local editorial environment, including Auth and Firestore emulators, a verified test editor and the approved Genesis 1 ripples, run:
+
+```bash
+npm run dev:test
+```
+
+Open the printed local URL and choose **כניסת בדיקה מקומית**. This button and its fixed local-only credentials exist only when `VITE_USE_FIREBASE_EMULATORS=true`; production builds never connect to the emulators or display the button. The command stops and clears the temporary emulator data when it exits.
+
 Quality checks:
 
 ```bash
