@@ -257,6 +257,10 @@ function ProposalView({ proposal, currentUserName, editorialRules, onBack, onUpd
   const [comment, setComment] = useState('')
   const [decisionMode, setDecisionMode] = useState<Decision['outcome'] | null>(null)
   const [decisionReason, setDecisionReason] = useState('')
+  const [editingReasoning, setEditingReasoning] = useState(false)
+  const [reasoningDraft, setReasoningDraft] = useState(proposal.reasoning)
+  const [reopening, setReopening] = useState(false)
+  const [reopenReason, setReopenReason] = useState('')
   const referencedRules = useMemo(() => editorialRules.filter((rule) => proposal.decision?.ruleIds?.includes(rule.id)), [editorialRules, proposal])
   const addComment = () => { if (!comment.trim()) return; onUpdate({ ...proposal, comments: [...proposal.comments, { id: `comment-${Date.now()}`, author: currentUserName, body: comment.trim(), createdAt: new Date().toISOString() }] }); setComment('') }
   const decide = () => {
@@ -266,16 +270,42 @@ function ProposalView({ proposal, currentUserName, editorialRules, onBack, onUpd
     onUpdate({ ...proposal, status: decisionMode, decision })
     setDecisionMode(null); setDecisionReason('')
   }
+  const saveReasoning = () => {
+    const reasoning = reasoningDraft.trim()
+    if (!reasoning || reasoning === proposal.reasoning) return
+    onUpdate({
+      ...proposal,
+      reasoning,
+      history: [...(proposal.history ?? []), { id: `history-${Date.now()}`, kind: 'reasoning-edited', editor: currentUserName, createdAt: new Date().toISOString(), previousReasoning: proposal.reasoning, reasoning }],
+    })
+    setEditingReasoning(false)
+  }
+  const reopen = () => {
+    if (!proposal.decision || !reopenReason.trim()) return
+    const { decision, ...proposalWithoutDecision } = proposal
+    onUpdate({
+      ...proposalWithoutDecision,
+      status: 'open',
+      history: [...(proposal.history ?? []), { id: `history-${Date.now()}`, kind: 'reopened', editor: currentUserName, createdAt: new Date().toISOString(), reasoning: reopenReason.trim(), previousDecision: decision }],
+    })
+    setReopening(false); setReopenReason('')
+  }
   return <div className="page proposal-page">
     <button className="back" onClick={onBack}>→ חזרה למרחב התנ״ך</button>
     <div className="proposal-heading"><div><span className="eyebrow">הצעה · {proposal.proposedType}</span><h1>{proposal.title}</h1></div><span className={`status large ${proposal.status}`}>{statusLabel[proposal.status]}</span></div>
     <p className="meta">הוצעה על־ידי {proposal.proposer} · {new Date(proposal.createdAt).toLocaleDateString('he-IL')}</p>
     <section><h2>המקורות המוצעים</h2><div className="comparison">{proposal.passageIds.map((id) => <PassageCard provider={provider} key={id} id={id} />)}</div></section>
-    <section className="reason"><h2>נימוק ההצעה</h2><p>{proposal.reasoning}</p></section>
+    <section className="reason"><div className="section-title"><h2>נימוק ההצעה</h2>{proposal.status === 'accepted' && !editingReasoning && <button className="link" onClick={() => { setReasoningDraft(proposal.reasoning); setEditingReasoning(true) }}>עריכת הנימוק</button>}</div>
+      {editingReasoning
+        ? <div className="reason-edit"><label className="field">נימוק מעודכן<textarea autoFocus rows={4} value={reasoningDraft} onChange={(event) => setReasoningDraft(event.target.value)} /></label><div className="button-row"><button onClick={() => setEditingReasoning(false)}>ביטול</button><button className="primary" disabled={!reasoningDraft.trim() || reasoningDraft.trim() === proposal.reasoning} onClick={saveReasoning}>שמירת הנימוק</button></div></div>
+        : <p>{proposal.reasoning}</p>}
+    </section>
     {proposal.decision && <section className={`decision ${proposal.decision.outcome}`}><span className="eyebrow">החלטה שנשמרה</span><h2>{proposal.decision.outcome === 'accepted' ? 'ההצעה התקבלה' : 'ההצעה נדחתה'}</h2><p>{proposal.decision.reasoning}</p><small>{proposal.decision.editor} · {new Date(proposal.decision.decidedAt).toLocaleDateString('he-IL')}</small>{referencedRules.map((rule) => <p className="rule-ref" key={rule.id}>כלל קשור: {rule.title}</p>)}</section>}
     <section><div className="section-title"><h2>דיון עריכתי</h2><span>{proposal.comments.length}</span></div><ol className="discussion">{proposal.comments.map((item) => <li key={item.id}><strong>{item.author}</strong><time>{new Date(item.createdAt).toLocaleString('he-IL')}</time><p>{item.body}</p></li>)}</ol>
       {proposal.status === 'open' && <div className="comment-box"><label className="field">הוספת תגובה<textarea rows={3} value={comment} onChange={(event) => setComment(event.target.value)} /></label><button onClick={addComment}>הוספת תגובה</button></div>}
     </section>
+    {(proposal.history?.length ?? 0) > 0 && <section><div className="section-title"><h2>היסטוריית שינויים</h2><span>{proposal.history!.length}</span></div><ol className="proposal-history">{[...proposal.history!].reverse().map((entry) => <li key={entry.id}><strong>{entry.kind === 'reasoning-edited' ? 'נימוק ההצעה נערך' : 'ההצעה הוחזרה לדיון'}</strong><time>{entry.editor} · {new Date(entry.createdAt).toLocaleString('he-IL')}</time>{entry.kind === 'reasoning-edited' ? <p>נוסח קודם: {entry.previousReasoning}</p> : <><p>סיבת ההחזרה: {entry.reasoning}</p><p>החלטה קודמת: ההצעה {entry.previousDecision.outcome === 'accepted' ? 'התקבלה' : 'נדחתה'} — {entry.previousDecision.reasoning}</p></>}</li>)}</ol></section>}
+    {proposal.status === 'accepted' && <section className="editor-actions"><h2>פתיחה מחדש של ההצעה</h2>{!reopening ? <button className="reopen" onClick={() => setReopening(true)}>החזרה לדיון</button> : <div className="decision-form"><label className="field">סיבת ההחזרה לדיון<textarea autoFocus rows={3} value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} /></label><p className="meta">החלטת הקבלה תישמר בהיסטוריה, וההצעה תחזור לסטטוס פתוחה לדיון.</p><div className="button-row"><button onClick={() => setReopening(false)}>ביטול</button><button className="reopen" disabled={!reopenReason.trim()} onClick={reopen}>החזרה ל־pending</button></div></div>}</section>}
     {proposal.status === 'open' && <section className="editor-actions"><h2>החלטת העורך הראשי</h2>{!decisionMode ? <div className="button-row"><button className="accept" onClick={() => setDecisionMode('accepted')}>קבלת ההצעה</button><button className="reject" onClick={() => setDecisionMode('rejected')}>דחיית ההצעה</button></div> : <div className="decision-form"><label className="field">נימוק {decisionMode === 'accepted' ? 'לקבלה' : 'לדחייה'}<textarea autoFocus rows={3} value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} /></label><div className="button-row"><button onClick={() => setDecisionMode(null)}>ביטול</button><button className={decisionMode === 'accepted' ? 'accept' : 'reject'} disabled={!decisionReason.trim()} onClick={decide}>שמירת החלטה</button></div></div>}</section>}
   </div>
 }

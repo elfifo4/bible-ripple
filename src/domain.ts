@@ -77,6 +77,24 @@ export type Decision = {
   ruleIds?: EditorialRule['id'][]
 }
 
+export type ProposalHistoryEntry =
+  | {
+    id: string
+    kind: 'reasoning-edited'
+    editor: string
+    createdAt: string
+    previousReasoning: string
+    reasoning: string
+  }
+  | {
+    id: string
+    kind: 'reopened'
+    editor: string
+    createdAt: string
+    reasoning: string
+    previousDecision: Decision
+  }
+
 export type Proposal = {
   id: string
   title: string
@@ -88,4 +106,5 @@ export type Proposal = {
   createdAt: string
   comments: DiscussionComment[]
   decision?: Decision
+  history?: ProposalHistoryEntry[]
 }
