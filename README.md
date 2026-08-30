@@ -75,6 +75,22 @@ npm run build
 npm run preview
 ```
 
+## Private DOCX dry run
+
+The source Word document remains private and must not be copied into this repository. A read-only analyzer can inventory its paragraph structure, formatting signals, anchor verses and biblical references without writing to Firestore:
+
+```bash
+python3 scripts/analyze-genesis-docx.py /absolute/path/to/source.docx \
+  --json /absolute/private/path/genesis-inventory.json \
+  --report /absolute/private/path/REPORT.md
+
+npx tsx scripts/compare-genesis-one.ts \
+  /absolute/private/path/genesis-inventory.json \
+  /absolute/private/path/GENESIS_1_COMPARISON.md
+```
+
+Keep all generated inventories and reports outside the repository because they contain material derived from the private editorial document. These commands are dry runs only; they never contact or modify Firebase.
+
 ## Firebase deployment
 
 The production site is hosted at [https://bible-ripple.web.app/](https://bible-ripple.web.app/). The workflow at `.github/workflows/deploy-firebase.yml` runs lint, tests and build, then deploys every push to `main`.
