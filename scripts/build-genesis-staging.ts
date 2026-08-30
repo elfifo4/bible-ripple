@@ -37,6 +37,12 @@ const outputPath = valueAfter('--output')
 const reportPath = valueAfter('--report')
 const chaptersArgument = valueAfter('--chapters') ?? '2-5'
 const validateSefaria = args.includes('--validate-sefaria')
+const approvedOnly = args.includes('--approved-only')
+const corrections = new Map(args.flatMap((arg, index) => arg === '--reference-correction' ? [args[index + 1]] : []).filter(Boolean).map((value) => {
+  const separator = value.indexOf('=')
+  if (separator < 1) throw new Error(`Invalid reference correction: ${value}`)
+  return [value.slice(0, separator), value.slice(separator + 1)] as [string, string]
+}))
 if (!inventoryPath || !outputPath || !reportPath) {
   throw new Error('Usage: tsx scripts/build-genesis-staging.ts --inventory FILE --output FILE --report FILE [--chapters 2-5] [--validate-sefaria]')
 }
@@ -63,6 +69,16 @@ const canonicalFor = (book: string, chapter: number, selection: Selection) => {
 
 const semanticKey = (citation: Citation) => citation.canonical_ref ?? citation.raw
 
+const correctedCitation = (citation: Citation): Citation => {
+  if (!citation.canonical_ref) return citation
+  const canonical = corrections.get(citation.canonical_ref)
+  if (!canonical) return citation
+  const match = canonical.match(/^(.+) (\d+):(\d+)(?:-(\d+))?$/)
+  if (!match) throw new Error(`Unsupported corrected reference: ${canonical}`)
+  const startVerse = Number(match[3]); const endVerse = match[4] ? Number(match[4]) : undefined
+  return { ...citation, canonical_ref: canonical, chapter: Number(match[2]), selection: { kind: 'range', startVerse, ...(endVerse ? { endVerse } : {}) }, error: null }
+}
+
 const validationRefs = (canonicalRef: string, selection: Selection): string[] => {
   if (selection.kind === 'range') return [canonicalRef]
   const match = canonicalRef.match(/^(.+) (\d+):/)
@@ -80,7 +96,13 @@ const validate = async (refs: string[]): Promise<SefariaValidation> => {
       const ref = uniqueRefs[cursor++]
       try {
         const params = new URLSearchParams({ version: "hebrew|Tanach with Ta'amei Hamikra", return_format: 'text_only' })
-        const response = await fetch(`https://www.sefaria.org/api/v3/texts/${encodeURIComponent(ref)}?${params}`)
+        let response: Response | undefined
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          response = await fetch(`https://www.sefaria.org/api/v3/texts/${encodeURIComponent(ref)}?${params}`)
+          if (response.ok || (response.status < 500 && response.status !== 429)) break
+          await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)))
+        }
+        if (!response) throw new Error('no response')
         if (!response.ok) errors.push(`${ref}: HTTP ${response.status}`)
         else {
           const data = await response.json() as { versions?: Array<{ text?: string | string[] }> }
@@ -96,19 +118,21 @@ const validate = async (refs: string[]): Promise<SefariaValidation> => {
 }
 
 const groups = inventory.candidateGroups.filter((group) =>
-  group.chapter >= chapterStart && group.chapter <= chapterEnd && group.citations.length > 0,
+  group.chapter >= chapterStart && group.chapter <= chapterEnd && group.citations.length > 0 && (!approvedOnly || group.hasYellow),
 )
 
 const candidates = []
 for (const group of groups) {
   const anchorSelection = selectionFor(group.anchorVerses)
-  const sources = [...new Map(group.citations.map((citation) => [semanticKey(citation), citation])).values()]
+  const correctedSources = group.citations.map(correctedCitation)
+  const sources = [...new Map(correctedSources.map((citation) => [semanticKey(citation), citation])).values()]
   const reviewReasons = [
     ...(group.anchorVerses.length > 1 && !group.hasYellow ? ['unapproved-multiple-verse-anchor'] : []),
     ...(group.hasUncertainty ? ['editorial-uncertainty-in-source'] : []),
     ...(sources.some((citation) => citation.error || !citation.canonical_ref || !citation.selection) ? ['unresolved-citation'] : []),
   ]
-  const refsToValidate = [canonicalFor('Genesis', group.chapter, anchorSelection)]
+  const anchorCanonical = canonicalFor('Genesis', group.chapter, anchorSelection)
+  const refsToValidate = validationRefs(anchorCanonical, anchorSelection)
   for (const source of sources) {
     if (source.canonical_ref && source.selection) refsToValidate.push(...validationRefs(source.canonical_ref, source.selection))
   }
@@ -122,7 +146,7 @@ for (const group of groups) {
     proposedType: null,
     approvalSignal: group.hasYellow ? 'yellow-anchor' : 'none',
     anchor: {
-      canonicalRef: canonicalFor('Genesis', group.chapter, anchorSelection),
+      canonicalRef: anchorCanonical,
       book: 'Genesis',
       bookTitleHe: 'בראשית',
       chapter: group.chapter,

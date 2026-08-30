@@ -14,6 +14,7 @@ ANCHOR_PATTERN = analyzer.ANCHOR_PATTERN
 anchor_value = analyzer.anchor_value
 numeric = analyzer.numeric
 parse_location = analyzer.parse_location
+parse_locations = analyzer.parse_locations
 REFERENCE_PATTERN = analyzer.REFERENCE_PATTERN
 
 
@@ -42,6 +43,10 @@ class GenesisDocxAnalyzerTest(unittest.TestCase):
         self.assertIsNotNone(match)
         citation = parse_location(match.group('book'), match.group('location'))
         self.assertEqual(citation.canonical_ref, 'Genesis 12:8')
+
+    def test_cross_chapter_reference_becomes_two_passages(self):
+        citations = parse_locations('מלכים א', 'יא, כו + יב, כ')
+        self.assertEqual([citation.canonical_ref for citation in citations], ['I Kings 11:26', 'I Kings 12:20'])
 
     def test_rtl_reversed_parenthesis_anchor(self):
         match = ANCHOR_PATTERN.search('י( וַיִּקְרָא אֱלֹהִים')

@@ -18,11 +18,13 @@ const projectId = valueAfter('--project') ?? 'bible-ripple'
 const apply = args.includes('--apply')
 const useGcloudAuth = args.includes('--gcloud-auth')
 const exclusions = args.flatMap((arg, index) => arg === '--exclude-source' ? [args[index + 1]] : []).filter(Boolean)
+const excludedCandidates = new Set(args.flatMap((arg, index) => arg === '--exclude-candidate' ? [args[index + 1]] : []).filter(Boolean))
 if (!stagingPath || !outputPath) throw new Error('Usage: tsx scripts/import-genesis-staging.ts --staging FILE --output FILE [--exclude-source "ANCHOR=SOURCE"] [--project ID --backup-dir DIR --apply]')
 if (apply && !backupDir) throw new Error('--backup-dir is required with --apply')
 
 const excluded = new Set(exclusions)
 const staging = JSON.parse(readFileSync(stagingPath, 'utf8')) as Staging
+const candidates = staging.candidates.filter((candidate) => !excludedCandidates.has(candidate.id))
 const bookOrder: Record<string, number> = {
   Genesis: 1, Exodus: 2, Leviticus: 3, Numbers: 4, Deuteronomy: 5, Joshua: 6, Judges: 7,
   'I Samuel': 8, 'II Samuel': 9, 'I Kings': 10, 'II Kings': 11, Isaiah: 12, Jeremiah: 13,
@@ -31,7 +33,11 @@ const bookOrder: Record<string, number> = {
   Proverbs: 28, Job: 29, 'Song of Songs': 30, Ruth: 31, Lamentations: 32, Ecclesiastes: 33,
   Esther: 34, Daniel: 35, Ezra: 36, Nehemiah: 37, 'I Chronicles': 38, 'II Chronicles': 39,
 }
-const genesisVerseCounts: Record<number, number> = { 2: 25, 3: 24, 4: 26, 5: 32 }
+const genesisVerseCounts = [
+  0, 31, 25, 24, 26, 32, 22, 24, 22, 29, 32, 32, 20, 18, 24, 21, 16, 27, 33, 38,
+  18, 34, 24, 20, 67, 34, 35, 46, 22, 35, 43, 55, 32, 20, 31, 29, 43, 36, 30, 23,
+  23, 57, 38, 34, 34, 28, 34, 31, 22, 33, 26,
+]
 const idOf = (canonicalRef: string) => `ref-${canonicalRef.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
 const passageMap = new Map<string, Record<string, unknown>>()
 const register = (item: StagingPassage & { book?: string }) => {
@@ -41,11 +47,13 @@ const register = (item: StagingPassage & { book?: string }) => {
   passageMap.set(id, { id, canonicalRef: item.canonicalRef, book, bookTitleHe: item.bookTitleHe, bookOrder: bookOrder[book], chapter: item.chapter, selection: item.selection })
   return id
 }
-for (const [chapterText, count] of Object.entries(genesisVerseCounts)) {
-  const chapter = Number(chapterText)
+const importedChapters = [...new Set(candidates.map((candidate) => candidate.anchor.chapter))]
+for (const chapter of importedChapters) {
+  const count = genesisVerseCounts[chapter]
+  if (!count) throw new Error(`Missing Genesis verse count for chapter ${chapter}`)
   for (let verse = 1; verse <= count; verse += 1) register({ canonicalRef: `Genesis ${chapter}:${verse}`, book: 'Genesis', bookTitleHe: 'בראשית', chapter, selection: { kind: 'range', startVerse: verse } })
 }
-const ripples = staging.candidates.filter((candidate) => candidate.approvalSignal === 'yellow-anchor').map((candidate) => {
+const ripples = candidates.filter((candidate) => candidate.approvalSignal === 'yellow-anchor').map((candidate) => {
   const anchorPassageId = register(candidate.anchor)
   const sources = candidate.sources.filter((source) => source.canonicalRef && !source.parseError && !excluded.has(`${candidate.anchor.canonicalRef}=${source.canonicalRef}`))
   return {
@@ -73,10 +81,15 @@ if (apply) {
     const snapshot = await db.collection(collectionName).get()
     writeFileSync(join(target, `${collectionName}.json`), JSON.stringify(snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() })), null, 2), 'utf8')
   }
-  const batch = db.batch()
-  for (const passage of payload.passages) batch.set(db.doc(`passages/${passage.id}`), passage)
-  for (const ripple of payload.ripples) batch.set(db.doc(`ripples/${ripple.id}`), ripple)
-  await batch.commit()
+  const writes = [
+    ...payload.passages.map((passage) => ({ path: `passages/${passage.id}`, data: passage })),
+    ...payload.ripples.map((ripple) => ({ path: `ripples/${ripple.id}`, data: ripple })),
+  ]
+  for (let offset = 0; offset < writes.length; offset += 450) {
+    const batch = db.batch()
+    for (const write of writes.slice(offset, offset + 450)) batch.set(db.doc(write.path), write.data)
+    await batch.commit()
+  }
   console.log(`Backed up existing collections to ${target}`)
   console.log(`Imported ${payload.ripples.length} ripples from ${basename(stagingPath)} into ${projectId}`)
 }

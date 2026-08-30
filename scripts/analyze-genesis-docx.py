@@ -139,6 +139,13 @@ def parse_location(book_he: str, raw_location: str) -> Citation:
     return Citation(f"{book_he} {raw_location}:", book_he, f"{BOOKS[book_he][0]} {chapter}:{suffix}", chapter, selection)
 
 
+def parse_locations(book_he: str, raw_location: str) -> list[Citation]:
+    parts = [part.strip() for part in re.split(r"\s*\+\s*", raw_location)]
+    if len(parts) == 1:
+        return [parse_location(book_he, raw_location)]
+    return [parse_location(book_he, part) for part in parts]
+
+
 def property_enabled(properties: ET.Element | None, tag: str) -> bool:
     if properties is None:
         return False
@@ -187,7 +194,7 @@ def read_paragraphs(docx_path: Path) -> list[Paragraph]:
             current_chapter = 1
         max_verse = GENESIS_VERSE_COUNTS[current_chapter] if current_chapter and current_chapter < len(GENESIS_VERSE_COUNTS) else 50
         anchors = [value for value in raw_anchors if value is not None and 1 <= value <= max_verse]
-        citations = [parse_location(match.group("book"), match.group("location")) for match in REFERENCE_PATTERN.finditer(text)]
+        citations = [citation for match in REFERENCE_PATTERN.finditer(text) for citation in parse_locations(match.group("book"), match.group("location"))]
         paragraphs.append(Paragraph(
             index=index,
             text=text,

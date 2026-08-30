@@ -93,6 +93,8 @@ npx tsx scripts/build-genesis-staging.ts \
   --output /absolute/private/path/genesis-2-5-staging.json \
   --report /absolute/private/path/GENESIS_2_5_STAGING_REPORT.md \
   --chapters 2-5 \
+  --approved-only \
+  --reference-correction 'Incorrect 1:2-1=Correct 1:2-3' \
   --validate-sefaria
 ```
 
