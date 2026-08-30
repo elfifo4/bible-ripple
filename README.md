@@ -87,9 +87,16 @@ python3 scripts/analyze-genesis-docx.py /absolute/path/to/source.docx \
 npx tsx scripts/compare-genesis-one.ts \
   /absolute/private/path/genesis-inventory.json \
   /absolute/private/path/GENESIS_1_COMPARISON.md
+
+npx tsx scripts/build-genesis-staging.ts \
+  --inventory /absolute/private/path/genesis-inventory.json \
+  --output /absolute/private/path/genesis-2-5-staging.json \
+  --report /absolute/private/path/GENESIS_2_5_STAGING_REPORT.md \
+  --chapters 2-5 \
+  --validate-sefaria
 ```
 
-Keep all generated inventories and reports outside the repository because they contain material derived from the private editorial document. These commands are dry runs only; they never contact or modify Firebase.
+Keep all generated inventories, staging files and reports outside the repository because they contain material derived from the private editorial document. These commands never contact or modify Firebase. The optional `--validate-sefaria` flag only checks normalized references against Sefaria's text API; it does not publish the resulting candidates.
 
 ## Firebase deployment
 

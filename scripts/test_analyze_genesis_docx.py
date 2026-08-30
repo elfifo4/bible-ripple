@@ -31,6 +31,11 @@ class GenesisDocxAnalyzerTest(unittest.TestCase):
         self.assertEqual(citation.canonical_ref, 'Psalms 148:2,3,5,6')
         self.assertEqual(citation.selection, {'kind': 'verses', 'verses': [2, 3, 5, 6]})
 
+    def test_explicit_chapter_prefix_is_not_parsed_as_a_numeral(self):
+        citation = parse_location('יואל', 'פרק ג, ה')
+        self.assertEqual(citation.canonical_ref, 'Joel 3:5')
+        self.assertEqual(citation.selection, {'kind': 'range', 'startVerse': 5})
+
     def test_rtl_reversed_parenthesis_anchor(self):
         match = ANCHOR_PATTERN.search('י( וַיִּקְרָא אֱלֹהִים')
         self.assertIsNotNone(match)

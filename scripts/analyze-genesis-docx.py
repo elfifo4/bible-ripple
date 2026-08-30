@@ -102,6 +102,7 @@ def anchor_value(match: re.Match[str]) -> int | None:
 def parse_location(book_he: str, raw_location: str) -> Citation:
     location = re.sub(r"\s+", " ", raw_location.strip(" [].,;"))
     location = re.sub(r"\s*\([^)]*\)\s*$", "", location).strip()
+    location = re.sub(r"^פרק\s+", "", location).strip()
     parts = [part.strip() for part in re.split(r"\s*,\s*|\s+", location) if part.strip()]
     if len(parts) < 2:
         return Citation(f"{book_he} {raw_location}:", book_he, None, None, None, "missing chapter or verse")
