@@ -104,7 +104,7 @@ for (const group of groups) {
   const anchorSelection = selectionFor(group.anchorVerses)
   const sources = [...new Map(group.citations.map((citation) => [semanticKey(citation), citation])).values()]
   const reviewReasons = [
-    ...(group.anchorVerses.length > 1 ? ['anchor-spans-multiple-verses'] : []),
+    ...(group.anchorVerses.length > 1 && !group.hasYellow ? ['unapproved-multiple-verse-anchor'] : []),
     ...(group.hasUncertainty ? ['editorial-uncertainty-in-source'] : []),
     ...(sources.some((citation) => citation.error || !citation.canonical_ref || !citation.selection) ? ['unresolved-citation'] : []),
   ]
@@ -185,7 +185,7 @@ const report = [
   '',
   '- `title` נשאר ריק כדי שלא להמציא כותרת שאינה במסמך.',
   '- `proposedType` נשאר ריק כדי שלא להכריע בסוג האדווה ללא החלטה עריכתית.',
-  '- מועמד מרובה־פסוקים נשמר כטווח רציף או כאוסף בדיד, אך מסומן לסקירה לפני ייבוא.',
+  '- רצף פסוקים המסומן בצהוב נשמר כטווח מאושר; רצף שאינו מסומן נשאר לבדיקה.',
   '',
 ].join('\n')
 writeFileSync(reportPath, report, 'utf8')

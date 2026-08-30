@@ -14,6 +14,7 @@ ANCHOR_PATTERN = analyzer.ANCHOR_PATTERN
 anchor_value = analyzer.anchor_value
 numeric = analyzer.numeric
 parse_location = analyzer.parse_location
+REFERENCE_PATTERN = analyzer.REFERENCE_PATTERN
 
 
 class GenesisDocxAnalyzerTest(unittest.TestCase):
@@ -35,6 +36,12 @@ class GenesisDocxAnalyzerTest(unittest.TestCase):
         citation = parse_location('יואל', 'פרק ג, ה')
         self.assertEqual(citation.canonical_ref, 'Joel 3:5')
         self.assertEqual(citation.selection, {'kind': 'range', 'startVerse': 5})
+
+    def test_bulleted_reference_before_a_quote(self):
+        match = REFERENCE_PATTERN.search(' בראשית יב, ח "...וַיִּבֶן שָׁם מִזְבֵּחַ"')
+        self.assertIsNotNone(match)
+        citation = parse_location(match.group('book'), match.group('location'))
+        self.assertEqual(citation.canonical_ref, 'Genesis 12:8')
 
     def test_rtl_reversed_parenthesis_anchor(self):
         match = ANCHOR_PATTERN.search('י( וַיִּקְרָא אֱלֹהִים')

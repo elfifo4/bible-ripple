@@ -47,7 +47,9 @@ HEBREW_VALUES = {
 }
 
 BOOK_PATTERN = "|".join(re.escape(book) for book in sorted(BOOKS, key=len, reverse=True))
-REFERENCE_PATTERN = re.compile(rf"(?P<book>{BOOK_PATTERN})\s+(?P<location>[^:\n]{{1,28}}):")
+REFERENCE_PATTERN = re.compile(
+    rf"(?P<book>{BOOK_PATTERN})\s+(?P<location>[^:\n\"“]{{1,28}}?)(?=\s*:|\s+[\"“])"
+)
 CHAPTER_PATTERN = re.compile(r"בראשית\s*,?\s*פרק\s+([א-ת0-9׳״\"']+)")
 ANCHOR_PATTERN = re.compile(r"(?:^|[\s•])(?:\(([א-ת]{1,3})\)|([א-ת]{1,3})\)|([א-ת]{1,3})\()\s*")
 UNCERTAINTY_TERMS = re.compile(r"לא סגור|להמשך מחשבה|להביא\?|לבדוק|להסתכל|אולי|נוטה ללא|לא בטוח")
