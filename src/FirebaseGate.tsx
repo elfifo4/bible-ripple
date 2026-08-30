@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth'
 import App from './App'
-import { addEditorAccess, getEditorAccess, loadEditorialContent, loadEditorAccessList, removeEditorAccess, type EditorialContent, type EditorAccess, saveProposal } from './editorialRepository'
+import { addEditorAccess, getEditorAccess, loadEditorialContent, loadEditorAccessList, removeEditorAccess, type EditorialContent, type EditorAccess, saveProposal, saveRippleTitle } from './editorialRepository'
 import { auth, googleProvider, usingFirebaseEmulators } from './firebaseClient'
 import { registerProtectedPassages } from './mockData'
 
@@ -85,6 +85,7 @@ export default function FirebaseGate() {
     onAddAuthorizedUser={(email) => addEditorAccess(email, state.user.email!)}
     onRemoveAuthorizedUser={removeEditorAccess}
     onSaveProposal={saveProposal}
+    onSaveRippleTitle={saveRippleTitle}
     onSignOut={() => void signOut(auth)}
   />
 }

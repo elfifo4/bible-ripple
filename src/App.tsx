@@ -63,10 +63,11 @@ type AppProps = {
   onAddAuthorizedUser?: (email: string) => Promise<EditorAccess>
   onRemoveAuthorizedUser?: (email: string) => Promise<void>
   onSaveProposal: (proposal: Proposal) => Promise<void>
+  onSaveRippleTitle?: (rippleId: string, title: string) => Promise<void>
   onSignOut?: () => void
 }
 
-function App({ textProvider = liveBibleTextProvider, currentUserName, currentUserPhotoUrl, ripplesData, initialProposals, editorialRulesData, currentUserRole = 'editor', initialAuthorizedUsers = [], onAddAuthorizedUser, onRemoveAuthorizedUser, onSaveProposal, onSignOut }: AppProps) {
+function App({ textProvider = liveBibleTextProvider, currentUserName, currentUserPhotoUrl, ripplesData, initialProposals, editorialRulesData, currentUserRole = 'editor', initialAuthorizedUsers = [], onAddAuthorizedUser, onRemoveAuthorizedUser, onSaveProposal, onSaveRippleTitle, onSignOut }: AppProps) {
   const initialRoute = routeFromPath(window.location.pathname)
   const initialPassage = passageById(initialRoute.passageId ?? defaultPassageId)
   const [screen, setScreen] = useState<Screen>(initialRoute.screen)
@@ -75,6 +76,7 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
   const [selectedId, setSelectedId] = useState(initialPassage.id)
   const [returnLabel, setReturnLabel] = useState<string | null>(() => window.history.state?.returnLabel ?? null)
   const [proposals, setProposals] = useState(initialProposals)
+  const [ripples, setRipples] = useState(ripplesData)
   const [authorizedUsers, setAuthorizedUsers] = useState(initialAuthorizedUsers)
 
   const applyRoute = (route: Route, nextReturnLabel: string | null = null) => {
@@ -113,15 +115,15 @@ function App({ textProvider = liveBibleTextProvider, currentUserName, currentUse
     else navigateToPassage(fallbackPassageId)
   }
 
-  const activeRipple = screen.kind === 'ripple' ? ripplesData.find((ripple) => ripple.id === screen.rippleId) : undefined
+  const activeRipple = screen.kind === 'ripple' ? ripples.find((ripple) => ripple.id === screen.rippleId) : undefined
   const activeProposal = screen.kind === 'proposal' ? proposals.find((proposal) => proposal.id === screen.proposalId) : undefined
 
   const content = screen.kind === 'admin' && currentUserRole === 'admin' && onAddAuthorizedUser && onRemoveAuthorizedUser
     ? <AdminView users={[...authorizedUsers].sort(compareEditorAccess)} onBack={() => goBack(selectedId)} onAdd={async (email) => { const added = await onAddAuthorizedUser(email); setAuthorizedUsers((current) => [...current.filter((item) => item.email !== added.email), added].sort(compareEditorAccess)) }} onRemove={async (email) => { await onRemoveAuthorizedUser(email); setAuthorizedUsers((current) => current.filter((item) => item.email !== email)) }} />
     : screen.kind === 'workspace'
-    ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripplesData} returnLabel={returnLabel} onReturn={() => window.history.back()} onSelect={navigateToPassage} onRipple={openRipple} onProposal={openProposal} onNew={openNewProposal} />
+    ? <Workspace provider={textProvider} book={book} chapter={chapter} selectedId={selectedId} proposals={proposals} ripples={ripples} returnLabel={returnLabel} onReturn={() => window.history.back()} onSelect={navigateToPassage} onRipple={openRipple} onProposal={openProposal} onNew={openNewProposal} />
     : screen.kind === 'ripple' && activeRipple
-      ? <RippleView provider={textProvider} ripple={activeRipple} onBack={() => goBack(activeRipple.anchorPassageId ?? activeRipple.members[0].passageId)} onNavigate={(id) => navigateToPassage(id, 'חזרה לאדווה')} />
+      ? <RippleView provider={textProvider} ripple={activeRipple} onBack={() => goBack(activeRipple.anchorPassageId ?? activeRipple.members[0].passageId)} onNavigate={(id) => navigateToPassage(id, 'חזרה לאדווה')} onSaveTitle={onSaveRippleTitle ? async (title) => { await onSaveRippleTitle(activeRipple.id, title); setRipples((current) => current.map((item) => item.id === activeRipple.id ? { ...item, title } : item)) } : undefined} />
       : screen.kind === 'new-proposal'
         ? <NewProposal provider={textProvider} sourceId={screen.sourceId} proposer={currentUserName} onCancel={() => goBack(screen.sourceId)} onSave={(proposal) => { setProposals((current) => [proposal, ...current]); void onSaveProposal(proposal); openProposal(proposal.id) }} />
         : activeProposal
@@ -235,7 +237,7 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
         {relatedRipples.length ? relatedRipples.map((ripple) => {
           const anchor = passageById(ripple.anchorPassageId ?? ripple.members[0].passageId)
           const additionalSources = ripple.members.filter((member) => !passagesOverlap(member.passageId, selectedId)).length
-          return <button className="list-card" key={ripple.id} onClick={() => onRipple(ripple.id)}><small>{ripple.type}</small><strong>{ripple.title || referenceOf(anchor)}</strong><span>{additionalSources === 1 ? 'מקור נוסף אחד' : `${additionalSources} מקורות נוספים`} ←</span></button>
+          return <button className="list-card" key={ripple.id} onClick={() => onRipple(ripple.id)}><small>{ripple.type}</small><strong>{ripple.title || referenceOf(anchor)}</strong>{!ripple.title && <span className="missing-title">חסרה כותרת עריכתית</span>}<span>{additionalSources === 1 ? 'מקור נוסף אחד' : `${additionalSources} מקורות נוספים`} ←</span></button>
         }) : <p className="empty">אין אדוות מאושרות לפסוק זה.</p>}
       </section>
       <section className="panel-section"><div className="section-title"><h3>הצעות והיסטוריה</h3><span>{relatedProposals.length}</span></div>
@@ -246,7 +248,11 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
   </div>
 }
 
-function RippleView({ ripple, onBack, onNavigate, provider }: { ripple: Ripple; onBack: () => void; onNavigate: (id: string) => void; provider: BibleTextProvider }) {
+function RippleView({ ripple, onBack, onNavigate, onSaveTitle, provider }: { ripple: Ripple; onBack: () => void; onNavigate: (id: string) => void; onSaveTitle?: (title: string) => Promise<void>; provider: BibleTextProvider }) {
+  const [title, setTitle] = useState(ripple.title ?? '')
+  const [editing, setEditing] = useState(!ripple.title)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
   const anchorId = ripple.anchorPassageId ?? ripple.members[0].passageId
   const anchorMember = ripple.members.find((member) => member.passageId === anchorId)
   const relatedMembers = ripple.members.filter((member) => member.passageId !== anchorId)
@@ -254,7 +260,9 @@ function RippleView({ ripple, onBack, onNavigate, provider }: { ripple: Ripple; 
     <button className="back" onClick={onBack}>→ חזרה לפרק</button>
     <span className="eyebrow">אדווה מאושרת · {ripple.type}</span>
     <h1>{referenceOf(passageById(anchorId))}</h1>
-    {ripple.title && <p className="ripple-title">{ripple.title}</p>}
+    {ripple.title ? <div className="ripple-title-row"><p className="ripple-title">{ripple.title}</p>{onSaveTitle && <button className="link" onClick={() => { setEditing(true); setMessage(null) }}>עריכת כותרת</button>}</div> : <p className="title-warning" role="status"><strong>חסרה כותרת עריכתית</strong><span>האדווה מוצגת זמנית לפי מראה המקום של העוגן.</span></p>}
+    {editing && onSaveTitle && <form className="title-form" onSubmit={async (event) => { event.preventDefault(); const nextTitle = title.trim(); if (!nextTitle) { setMessage('יש להזין כותרת.'); return } setSaving(true); setMessage(null); try { await onSaveTitle(nextTitle); setEditing(false); setMessage('הכותרת נשמרה.'); } catch { setMessage('לא ניתן היה לשמור את הכותרת. נסו שוב.'); } finally { setSaving(false) } }}><label className="field">כותרת עריכתית<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} autoFocus /></label><div className="button-row"><button className="primary" type="submit" disabled={saving || !title.trim()}>{saving ? 'שומר…' : 'שמירת כותרת'}</button>{ripple.title && <button type="button" disabled={saving} onClick={() => { setTitle(ripple.title ?? ''); setEditing(false); setMessage(null) }}>ביטול</button>}</div></form>}
+    {message && <p className="form-message" role="status">{message}</p>}
     {ripple.explanation && <p className="lead">{ripple.explanation}</p>}
     <section className="ripple-anchor" aria-labelledby="anchor-title">
       <div className="section-title"><h2 id="anchor-title">פסוק העוגן</h2><span className="role">{anchorMember?.role ?? 'עוגן'}</span></div>

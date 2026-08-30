@@ -63,3 +63,7 @@ export async function loadEditorialContent(): Promise<EditorialContent> {
 export async function saveProposal(proposal: Proposal): Promise<void> {
   await setDoc(doc(db, 'proposals', proposal.id), proposal)
 }
+
+export async function saveRippleTitle(rippleId: string, title: string): Promise<void> {
+  await setDoc(doc(db, 'ripples', rippleId), { title: title.trim() }, { merge: true })
+}

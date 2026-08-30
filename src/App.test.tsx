@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { MockBibleTextProvider } from './bibleTextProvider'
@@ -112,6 +112,23 @@ describe('critical editorial workflow', () => {
     const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => undefined)
     fireEvent.click(screen.getByRole('button', { name: /חזרה לאדווה/ }))
     expect(historyBack).toHaveBeenCalledOnce()
+  })
+
+  it('marks a missing ripple title and lets an editor save one', async () => {
+    const untitledRipple: Ripple = { ...creationRipple, id: 'untitled', title: undefined }
+    const onSaveRippleTitle = vi.fn().mockResolvedValue(undefined)
+    window.history.replaceState(null, '', '/read/Genesis/1/1')
+    render(<App textProvider={new MockBibleTextProvider()} currentUserName="בודק" ripplesData={[untitledRipple]} initialProposals={[]} editorialRulesData={[]} onSaveProposal={vi.fn().mockResolvedValue(undefined)} onSaveRippleTitle={onSaveRippleTitle} />)
+
+    const missingTitle = screen.getByText('חסרה כותרת עריכתית')
+    expect(missingTitle).toBeInTheDocument()
+    fireEvent.click(missingTitle.closest('button')!)
+    fireEvent.change(screen.getByRole('textbox', { name: 'כותרת עריכתית' }), { target: { value: 'כותרת חדשה' } })
+    fireEvent.click(screen.getByRole('button', { name: 'שמירת כותרת' }))
+
+    await waitFor(() => expect(onSaveRippleTitle).toHaveBeenCalledWith('untitled', 'כותרת חדשה'))
+    expect(await screen.findByText('הכותרת נשמרה.')).toBeInTheDocument()
+    expect(screen.getByText('כותרת חדשה')).toBeInTheDocument()
   })
 
   it('edits the reasoning of an accepted proposal and preserves the previous text', () => {
