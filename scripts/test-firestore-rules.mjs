@@ -12,6 +12,7 @@ try {
     await setDoc(doc(context.firestore(), 'editorAccess/editor@example.com'), { role: 'editor' })
     await setDoc(doc(context.firestore(), 'editorAccess/admin@example.com'), { role: 'admin' })
     await setDoc(doc(context.firestore(), 'ripples/example'), { title: 'protected content' })
+    await setDoc(doc(context.firestore(), 'passages/example'), { canonicalRef: 'Genesis 1:1' })
   })
 
   const editor = testEnv.authenticatedContext('editor-user', { email: 'editor@example.com', email_verified: true }).firestore()
@@ -21,6 +22,8 @@ try {
   const anonymous = testEnv.unauthenticatedContext().firestore()
 
   await assertSucceeds(getDoc(doc(editor, 'ripples/example')))
+  await assertSucceeds(getDoc(doc(editor, 'passages/example')))
+  await assertFails(getDoc(doc(outsider, 'passages/example')))
   await assertSucceeds(setDoc(doc(editor, 'proposals/example'), { status: 'open' }))
   await assertFails(getDoc(doc(outsider, 'ripples/example')))
   await assertFails(getDoc(doc(unverified, 'ripples/example')))
@@ -32,7 +35,7 @@ try {
   await assertFails(deleteDoc(doc(admin, 'editorAccess/admin@example.com')))
   await assertSucceeds(deleteDoc(doc(admin, 'editorAccess/another@example.com')))
 
-  console.log('Firestore rules: 11 checks passed.')
+  console.log('Firestore rules: 13 checks passed.')
 } finally {
   await testEnv.cleanup()
 }

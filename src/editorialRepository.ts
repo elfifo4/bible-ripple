@@ -1,8 +1,9 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
-import type { EditorialRule, Proposal, Ripple } from './domain'
+import type { EditorialRule, PassageRef, Proposal, Ripple } from './domain'
 import { db } from './firebaseClient'
 
 export type EditorialContent = {
+  passages: PassageRef[]
   ripples: Ripple[]
   proposals: Proposal[]
   editorialRules: EditorialRule[]
@@ -50,12 +51,13 @@ export async function removeEditorAccess(email: string): Promise<void> {
 }
 
 export async function loadEditorialContent(): Promise<EditorialContent> {
-  const [ripples, proposals, editorialRules] = await Promise.all([
+  const [passages, ripples, proposals, editorialRules] = await Promise.all([
+    readCollection<PassageRef>('passages'),
     readCollection<Ripple>('ripples'),
     readCollection<Proposal>('proposals'),
     readCollection<EditorialRule>('editorialRules'),
   ])
-  return { ripples, proposals, editorialRules }
+  return { passages, ripples, proposals, editorialRules }
 }
 
 export async function saveProposal(proposal: Proposal): Promise<void> {

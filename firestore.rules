@@ -31,6 +31,10 @@ service cloud.firestore {
       allow read, write: if isAllowedEditor();
     }
 
+    match /passages/{document=**} {
+      allow read, write: if isAllowedEditor();
+    }
+
     match /proposals/{document=**} {
       allow read, write: if isAllowedEditor();
     }

@@ -37,6 +37,13 @@ export const passages: MockPassageRecord[] = [...new Map(
   [...genesisOnePassages, ...prototypePassages].map((passage) => [passage.id, passage]),
 ).values()]
 
+export const registerProtectedPassages = (items: PassageRef[]) => {
+  const known = new Set(passages.map((passage) => passage.id))
+  for (const item of items) {
+    if (!known.has(item.id)) passages.push({ ...item, fallbackText: 'הטקסט אינו זמין במצב המקומי.' })
+  }
+}
+
 export const passageById = (id: string) => passages.find((passage) => passage.id === id)!
 export const referenceOf = (passage: PassageRef) => {
   const verses = passage.selection.kind === 'range'

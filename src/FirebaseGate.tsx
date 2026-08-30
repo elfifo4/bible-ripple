@@ -3,6 +3,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signIn
 import App from './App'
 import { addEditorAccess, getEditorAccess, loadEditorialContent, loadEditorAccessList, removeEditorAccess, type EditorialContent, type EditorAccess, saveProposal } from './editorialRepository'
 import { auth, googleProvider, usingFirebaseEmulators } from './firebaseClient'
+import { registerProtectedPassages } from './mockData'
 
 const LOCAL_TEST_EMAIL = 'codex-test@bible-ripple.local'
 const LOCAL_TEST_PASSWORD = 'local-test-only'
@@ -36,6 +37,7 @@ export default function FirebaseGate() {
         loadEditorialContent(),
         access.role === 'admin' ? loadEditorAccessList() : Promise.resolve([]),
       ])
+      registerProtectedPassages(content.passages)
       setState({ kind: 'ready', user, content, access, authorizedUsers })
     } catch {
       setState({ kind: 'error', message: 'לא ניתן לטעון כעת את מרחב העריכה.' })
