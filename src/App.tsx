@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Ripple } from './domain'
 import { liveBibleTextProvider, sefariaPageUrl, type BibleTextProvider } from './bibleTextProvider'
-import { isSingleVerse, passageById, passages, passageStartVerse, referenceOf } from './mockData'
+import { isSingleVerse, passageById, passages, passageStartVerse, passagesOverlap, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
 import { compareEditorAccess, type AccessRole, type EditorAccess } from './editorialRepository'
 
@@ -33,6 +33,8 @@ const routeFromPath = (pathname: string): Route => {
 
 const statusLabel: Record<Proposal['status'], string> = { draft: 'טיוטה', open: 'פתוחה לדיון', accepted: 'התקבלה', rejected: 'נדחתה' }
 const typeOptions = ['מקבילה תוכנית', 'המשך / השלמה', 'הסבר', 'ניגוד / מתח', 'מקבילה ספרותית', 'סיפור מקביל']
+
+const rippleIncludesPassage = (ripple: Ripple, passageId: string) => ripple.members.some((member) => passagesOverlap(member.passageId, passageId))
 
 function usePassageText(id: string, provider: BibleTextProvider) {
   const [passage, setPassage] = useState<BiblePassage | null>(null)
@@ -193,9 +195,9 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
   const availableChapters = [...new Set(passages.filter((passage) => passage.book === book).map((passage) => passage.chapter))].sort((a, b) => a - b)
   const selected = passageById(selectedId)
   const selectedText = bibleChapter?.verses.find((verse) => passageStartVerse(verse.ref) === passageStartVerse(selected))?.text ?? selected.fallbackText
-  const relatedRipples = ripples.filter((ripple) => ripple.members.some((member) => member.passageId === selectedId))
+  const relatedRipples = ripples.filter((ripple) => rippleIncludesPassage(ripple, selectedId))
   const relatedProposals = proposals.filter((proposal) => proposal.passageIds.includes(selectedId))
-  const relatedSourceIds = new Set(relatedRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => id !== selectedId)))
+  const relatedSourceIds = new Set(relatedRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => !passagesOverlap(id, selectedId))))
   const relatedSourceCount = relatedSourceIds.size
   const rippleSummary = `${relatedRipples.length === 1 ? 'אדווה אחת' : `${relatedRipples.length} אדוות`} · ${relatedSourceCount === 1 ? 'מקור נוסף אחד' : `${relatedSourceCount} מקורות נוספים`}`
 
@@ -212,8 +214,8 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
         {bibleChapter?.verses.map((verse) => {
           const verseNumber = passageStartVerse(verse.ref)
           const knownPassage = passages.find((passage) => passage.book === book && passage.chapter === chapter && isSingleVerse(passage.selection) && passage.selection.startVerse === verseNumber)
-          const verseRipples = knownPassage ? ripples.filter((ripple) => ripple.members.some((member) => member.passageId === knownPassage.id)) : []
-          const sourceCount = knownPassage ? new Set(verseRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => id !== knownPassage.id))).size : 0
+          const verseRipples = knownPassage ? ripples.filter((ripple) => rippleIncludesPassage(ripple, knownPassage.id)) : []
+          const sourceCount = knownPassage ? new Set(verseRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => !passagesOverlap(id, knownPassage.id)))).size : 0
           const summary = `${verseRipples.length === 1 ? 'אדווה אחת' : `${verseRipples.length} אדוות`} · ${sourceCount === 1 ? 'מקור נוסף אחד' : `${sourceCount} מקורות נוספים`}`
           return <button key={verse.ref.canonicalRef} className={`verse ${knownPassage && selectedId === knownPassage.id ? 'selected' : ''}`} onClick={() => { if (knownPassage) { onSelect(knownPassage.id); setMobilePanelOpen(true) } }} aria-pressed={Boolean(knownPassage && selectedId === knownPassage.id)}>
             <sup>{toHebrewNumeral(verseNumber)}</sup> {verse.text} {verseRipples.length > 0 && <span className="ripple-marker" aria-label={summary}><span className="marker-desktop">{summary}</span><span className="marker-mobile">{sourceCount === 1 ? 'מקור אחד' : `${sourceCount} מקורות`}</span></span>}
@@ -232,7 +234,7 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
       <section className="panel-section"><div className="section-title"><h3>אדוות מאושרות</h3><span>{relatedRipples.length}</span></div>
         {relatedRipples.length ? relatedRipples.map((ripple) => {
           const anchor = passageById(ripple.anchorPassageId ?? ripple.members[0].passageId)
-          const additionalSources = ripple.members.filter((member) => member.passageId !== selectedId).length
+          const additionalSources = ripple.members.filter((member) => !passagesOverlap(member.passageId, selectedId)).length
           return <button className="list-card" key={ripple.id} onClick={() => onRipple(ripple.id)}><small>{ripple.type}</small><strong>{ripple.title || referenceOf(anchor)}</strong><span>{additionalSources === 1 ? 'מקור נוסף אחד' : `${additionalSources} מקורות נוספים`} ←</span></button>
         }) : <p className="empty">אין אדוות מאושרות לפסוק זה.</p>}
       </section>

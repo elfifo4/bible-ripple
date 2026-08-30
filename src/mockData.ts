@@ -45,6 +45,13 @@ export const registerProtectedPassages = (items: PassageRef[]) => {
 }
 
 export const passageById = (id: string) => passages.find((passage) => passage.id === id)!
+export const passagesOverlap = (firstId: string, secondId: string) => {
+  const first = passages.find((passage) => passage.id === firstId)
+  const second = passages.find((passage) => passage.id === secondId)
+  if (!first || !second || first.book !== second.book || first.chapter !== second.chapter) return false
+  const secondVerses = new Set(passageVerseNumbers(second))
+  return passageVerseNumbers(first).some((verse) => secondVerses.has(verse))
+}
 export const referenceOf = (passage: PassageRef) => {
   const verses = passage.selection.kind === 'range'
     ? `${toHebrewNumeral(passage.selection.startVerse)}${passage.selection.endVerse ? `–${toHebrewNumeral(passage.selection.endVerse)}` : ''}`

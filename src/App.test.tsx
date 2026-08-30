@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { MockBibleTextProvider } from './bibleTextProvider'
 import type { Proposal, Ripple } from './domain'
+import { passagesOverlap, registerProtectedPassages } from './mockData'
 
 const creationRipple: Ripple = {
   id: 'creation',
@@ -34,6 +35,15 @@ const acceptedProposal: Proposal = {
     decidedAt: '2026-08-21T10:00:00.000Z',
   },
 }
+
+it('matches a selected verse inside an approved anchor range', () => {
+  registerProtectedPassages([
+    { id: 'test-gen-3-2-8', canonicalRef: 'Genesis 3:2-8', book: 'Genesis', bookTitleHe: 'בראשית', bookOrder: 1, chapter: 3, selection: { kind: 'range', startVerse: 2, endVerse: 8 } },
+    { id: 'test-gen-3-6', canonicalRef: 'Genesis 3:6', book: 'Genesis', bookTitleHe: 'בראשית', bookOrder: 1, chapter: 3, selection: { kind: 'range', startVerse: 6 } },
+  ])
+  expect(passagesOverlap('test-gen-3-2-8', 'test-gen-3-6')).toBe(true)
+  expect(passagesOverlap('test-gen-3-2-8', 'gen-1-1')).toBe(false)
+})
 
 describe('critical editorial workflow', () => {
   beforeEach(() => window.history.replaceState(null, '', '/'))
