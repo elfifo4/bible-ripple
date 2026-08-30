@@ -4,6 +4,14 @@ import { isSingleVerse, passages, passageVerseNumbers, type MockPassageRecord } 
 export const SEFARIA_VERSION = "Tanach with Ta'amei Hamikra"
 const SEFARIA_API = 'https://www.sefaria.org/api/v3/texts'
 
+export const sefariaPageUrl = (ref: PassageRef): string => {
+  const pageRef = ref.canonicalRef
+    .replace(/\s+(?=\d)/, '.')
+    .replace(':', '.')
+    .replaceAll(' ', '_')
+  return `https://www.sefaria.org/${encodeURI(pageRef)}?lang=he&aliyot=0`
+}
+
 export interface BibleTextProvider {
   getPassage(ref: PassageRef): Promise<BiblePassage>
   getChapter(book: string, bookTitleHe: string, chapter: number): Promise<BibleChapter>

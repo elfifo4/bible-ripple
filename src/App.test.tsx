@@ -94,6 +94,8 @@ describe('critical editorial workflow', () => {
     expect(screen.getByRole('heading', { name: 'פסוק העוגן' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'מקורות מקבילים' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'הצגה בתוך הפרק' })).toHaveLength(3)
+    expect(screen.getByRole('link', { name: 'פתיחת בראשית א:א בספריא' })).toHaveAttribute('href', 'https://www.sefaria.org/Genesis.1.1?lang=he&aliyot=0')
+    expect(screen.getByRole('link', { name: 'פתיחת ישעיהו מה:יב בספריא' })).toHaveAttribute('target', '_blank')
 
     fireEvent.click(screen.getAllByRole('button', { name: 'הצגה בתוך הפרק' })[1])
     expect(window.location.pathname).toBe('/read/Isaiah/45/12')

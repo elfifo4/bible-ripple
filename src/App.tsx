@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Ripple } from './domain'
-import { liveBibleTextProvider, type BibleTextProvider } from './bibleTextProvider'
+import { liveBibleTextProvider, sefariaPageUrl, type BibleTextProvider } from './bibleTextProvider'
 import { isSingleVerse, passageById, passages, passageStartVerse, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
 import { compareEditorAccess, type AccessRole, type EditorAccess } from './editorialRepository'
@@ -44,7 +44,7 @@ function PassageCard({ id, action, provider }: { id: string; action?: React.Reac
   const passage = passageById(id)
   const biblePassage = usePassageText(id, provider)
   return <article className="passage-card">
-    <div className="card-heading"><strong>{referenceOf(passage)}</strong>{action}</div>
+    <div className="card-heading"><strong>{referenceOf(passage)}</strong><div className="card-actions">{action}<a className="link sefaria-link" href={sefariaPageUrl(passage)} target="_blank" rel="noopener noreferrer" aria-label={`פתיחת ${referenceOf(passage)} בספריא`}>פתיחה בספריא ↗</a></div></div>
     <p>{biblePassage?.text ?? 'טוען טקסט מספריא…'}</p>
   </article>
 }
