@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app'
+import { execFileSync } from 'node:child_process'
+import { applicationDefault, getApps, initializeApp, type Credential } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 
 type Selection = { kind: 'range'; startVerse: number; endVerse?: number } | { kind: 'verses'; verses: number[] }
@@ -15,6 +16,7 @@ const outputPath = valueAfter('--output')
 const backupDir = valueAfter('--backup-dir')
 const projectId = valueAfter('--project') ?? 'bible-ripple'
 const apply = args.includes('--apply')
+const useGcloudAuth = args.includes('--gcloud-auth')
 const exclusions = args.flatMap((arg, index) => arg === '--exclude-source' ? [args[index + 1]] : []).filter(Boolean)
 if (!stagingPath || !outputPath) throw new Error('Usage: tsx scripts/import-genesis-staging.ts --staging FILE --output FILE [--exclude-source "ANCHOR=SOURCE"] [--project ID --backup-dir DIR --apply]')
 if (apply && !backupDir) throw new Error('--backup-dir is required with --apply')
@@ -56,7 +58,13 @@ writeFileSync(outputPath, JSON.stringify(payload, null, 2), 'utf8')
 console.log(`Prepared ${ripples.length} ripples and ${passageMap.size} passages in ${outputPath}`)
 
 if (apply) {
-  const app = getApps()[0] ?? initializeApp({ credential: applicationDefault(), projectId })
+  const credential: Credential = useGcloudAuth ? {
+    getAccessToken: async () => ({
+      access_token: execFileSync('gcloud', ['auth', 'print-access-token'], { encoding: 'utf8' }).trim(),
+      expires_in: 3300,
+    }),
+  } : applicationDefault()
+  const app = getApps()[0] ?? initializeApp({ credential, projectId })
   const db = getFirestore(app)
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   const target = join(backupDir!, `production-backup-${timestamp}`)
