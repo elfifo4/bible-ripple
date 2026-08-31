@@ -100,6 +100,15 @@ npx tsx scripts/build-genesis-staging.ts \
 
 Keep all generated inventories, staging files and reports outside the repository because they contain material derived from the private editorial document. These commands never contact or modify Firebase. The optional `--validate-sefaria` flag only checks normalized references against Sefaria's text API; it does not publish the resulting candidates.
 
+Title suggestions can be generated privately from the opening phrase of each anchor. Applying them requires an explicit backup directory and never overwrites an existing approved title:
+
+```bash
+npx tsx scripts/suggest-ripple-titles.ts \
+  --staging /absolute/private/path/genesis-2-5-staging.json \
+  --staging /absolute/private/path/genesis-6-50-staging.json \
+  --output /absolute/private/path/genesis-title-suggestions.json
+```
+
 ## Firebase deployment
 
 The production site is hosted at [https://bible-ripple.web.app/](https://bible-ripple.web.app/). The workflow at `.github/workflows/deploy-firebase.yml` runs lint, tests and build, then deploys every push to `main`.
