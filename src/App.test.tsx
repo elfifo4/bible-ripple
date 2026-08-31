@@ -86,6 +86,21 @@ describe('critical editorial workflow', () => {
     expect(onSignOut).toHaveBeenCalledOnce()
   })
 
+  it('navigates across book boundaries and opens a new book at chapter one', () => {
+    window.history.replaceState(null, '', '/read/Genesis/50/1')
+    render(<App textProvider={new MockBibleTextProvider()} currentUserName="בודק" ripplesData={[]} initialProposals={[]} editorialRulesData={[]} onSaveProposal={vi.fn().mockResolvedValue(undefined)} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'הפרק הבא ←' })[0])
+    expect(screen.getByRole('heading', { name: 'שמות פרק א' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/read/Exodus/1/1')
+
+    fireEvent.click(screen.getAllByRole('button', { name: '→ הפרק הקודם' })[0])
+    expect(screen.getByRole('heading', { name: 'בראשית פרק נ' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'הספר הבא: שמות ←' })[0])
+    expect(screen.getByRole('heading', { name: 'שמות פרק א' })).toBeInTheDocument()
+  })
+
   it('distinguishes the anchor, related sources, and browser navigation', async () => {
     window.history.replaceState(null, '', '/read/Genesis/1/1')
     render(<App

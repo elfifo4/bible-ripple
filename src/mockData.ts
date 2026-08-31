@@ -1,6 +1,7 @@
 import type { ContiguousPassageSelection, PassageRef, PassageSelection } from './domain'
 import { genesisOnePassages } from './genesisOneData'
 import { toHebrewNumeral } from './hebrewNumerals'
+import { tanakhBook, tanakhBooks } from './tanakhMetadata'
 
 export type MockPassageRecord = PassageRef & { fallbackText: string }
 
@@ -45,6 +46,15 @@ export const registerProtectedPassages = (items: PassageRef[]) => {
 }
 
 export const passageById = (id: string) => passages.find((passage) => passage.id === id)!
+export const ensureSingleVersePassage = (book: string, chapter: number, verse = 1) => {
+  const existing = passages.find((passage) => passage.book === book && passage.chapter === chapter && isSingleVerse(passage.selection) && passage.selection.startVerse === verse)
+  if (existing) return existing
+  const metadata = tanakhBook(book)
+  if (!metadata) throw new Error(`Unknown Tanakh book: ${book}`)
+  const record: MockPassageRecord = { id: `nav-${book.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${chapter}-${verse}`, canonicalRef: `${book} ${chapter}:${verse}`, book, bookTitleHe: metadata.titleHe, bookOrder: tanakhBooks.indexOf(metadata) + 1, chapter, selection: { kind: 'range', startVerse: verse }, fallbackText: 'הטקסט אינו זמין במצב המקומי.' }
+  passages.push(record)
+  return record
+}
 export const passagesOverlap = (firstId: string, secondId: string) => {
   const first = passages.find((passage) => passage.id === firstId)
   const second = passages.find((passage) => passage.id === secondId)

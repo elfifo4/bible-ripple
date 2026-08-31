@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { BibleChapter, BiblePassage, Decision, EditorialRule, Proposal, Ripple } from './domain'
 import { liveBibleTextProvider, sefariaPageUrl, type BibleTextProvider } from './bibleTextProvider'
-import { isSingleVerse, passageById, passages, passageStartVerse, passagesOverlap, referenceOf } from './mockData'
+import { ensureSingleVersePassage, passageById, passages, passageStartVerse, passagesOverlap, referenceOf } from './mockData'
 import { toHebrewNumeral } from './hebrewNumerals'
+import { tanakhBook, tanakhBooks } from './tanakhMetadata'
 import { compareEditorAccess, type AccessRole, type EditorAccess } from './editorialRepository'
 
 type Screen = { kind: 'workspace' } | { kind: 'ripple'; rippleId: string } | { kind: 'new-proposal'; sourceId: string } | { kind: 'proposal'; proposalId: string } | { kind: 'admin' }
@@ -18,7 +19,8 @@ const passagePath = (id: string) => {
 const routeFromPath = (pathname: string): Route => {
   const parts = pathname.split('/').filter(Boolean).map(decodeURIComponent)
   if (parts[0] === 'read' && parts.length >= 4) {
-    const passage = passages.find((item) => item.book === parts[1] && item.chapter === Number(parts[2]) && isSingleVerse(item.selection) && item.selection.startVerse === Number(parts[3]))
+    const metadata = tanakhBook(parts[1]); const chapter = Number(parts[2]); const verse = Number(parts[3])
+    const passage = metadata && chapter >= 1 && chapter <= metadata.chapters && verse >= 1 ? ensureSingleVersePassage(metadata.book, chapter, verse) : undefined
     if (passage) return { screen: { kind: 'workspace' }, passageId: passage.id }
   }
   if (parts[0] === 'ripples' && parts[1]) return { screen: { kind: 'ripple', rippleId: parts[1] } }
@@ -194,9 +196,14 @@ type WorkspaceProps = {
 function Workspace({ provider, book, chapter, selectedId, proposals, ripples, returnLabel, onReturn, onSelect, onRipple, onProposal, onNew, onSaveRippleTitle }: WorkspaceProps) {
   const [bibleChapter, setBibleChapter] = useState<BibleChapter | null>(null)
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
-  useEffect(() => { const bookRecord = passages.find((passage) => passage.book === book)!; let active = true; provider.getChapter(book, bookRecord.bookTitleHe, chapter).then((result) => { if (active) setBibleChapter(result) }); return () => { active = false } }, [book, chapter, provider])
-  const availableBooks = [...new Set([...passages].sort((a, b) => a.bookOrder - b.bookOrder).map((passage) => passage.book))]
-  const availableChapters = [...new Set(passages.filter((passage) => passage.book === book).map((passage) => passage.chapter))].sort((a, b) => a - b)
+  const bookRecord = tanakhBook(book)!
+  useEffect(() => { let active = true; provider.getChapter(book, bookRecord.titleHe, chapter).then((result) => { if (active) setBibleChapter(result) }); return () => { active = false } }, [book, bookRecord.titleHe, chapter, provider])
+  const bookIndex = tanakhBooks.findIndex((item) => item.book === book)
+  const previousBook = tanakhBooks[bookIndex - 1]
+  const nextBook = tanakhBooks[bookIndex + 1]
+  const navigate = (targetBook: string, targetChapter: number) => onSelect(ensureSingleVersePassage(targetBook, targetChapter).id)
+  const navigatePreviousChapter = () => chapter > 1 ? navigate(book, chapter - 1) : previousBook && navigate(previousBook.book, previousBook.chapters)
+  const navigateNextChapter = () => chapter < bookRecord.chapters ? navigate(book, chapter + 1) : nextBook && navigate(nextBook.book, 1)
   const selected = passageById(selectedId)
   const selectedText = bibleChapter?.verses.find((verse) => passageStartVerse(verse.ref) === passageStartVerse(selected))?.text ?? selected.fallbackText
   const relatedRipples = ripples.filter((ripple) => rippleIncludesPassage(ripple, selectedId))
@@ -209,15 +216,16 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
     <section className="reader" aria-labelledby="chapter-title">
       {returnLabel && <button className="context-return" onClick={onReturn}>→ {returnLabel}</button>}
       <div className="toolbar">
-        <label>ספר<select value={book} onChange={(event) => { const first = passages.find((item) => item.book === event.target.value)!; onSelect(first.id) }}>{availableBooks.map((item) => <option key={item} value={item}>{passages.find((passage) => passage.book === item)!.bookTitleHe}</option>)}</select></label>
-        <label>פרק<select value={chapter} onChange={(event) => { const next = Number(event.target.value); onSelect(passages.find((item) => item.book === book && item.chapter === next)!.id) }}>{availableChapters.map((item) => <option key={item} value={item}>{toHebrewNumeral(item)}</option>)}</select></label>
+        <label>ספר<select value={book} onChange={(event) => navigate(event.target.value, 1)}>{tanakhBooks.map((item) => <option key={item.book} value={item.book}>{item.titleHe}</option>)}</select></label>
+        <label>פרק<select value={chapter} onChange={(event) => navigate(book, Number(event.target.value))}>{Array.from({ length: bookRecord.chapters }, (_, index) => index + 1).map((item) => <option key={item} value={item}>{toHebrewNumeral(item)}</option>)}</select></label>
       </div>
       <div className="chapter-heading"><div><span className="eyebrow">קריאה בהקשר</span><h1 id="chapter-title">{selected.bookTitleHe} פרק {toHebrewNumeral(chapter)}</h1></div><span className="hint">בחרו פסוק כדי לראות אדוות</span></div>
+      <ChapterNavigation previousBook={previousBook?.titleHe} nextBook={nextBook?.titleHe} canPreviousChapter={Boolean(chapter > 1 || previousBook)} canNextChapter={Boolean(chapter < bookRecord.chapters || nextBook)} onPreviousBook={() => previousBook && navigate(previousBook.book, 1)} onNextBook={() => nextBook && navigate(nextBook.book, 1)} onPreviousChapter={navigatePreviousChapter} onNextChapter={navigateNextChapter} />
       <div className="chapter-text">
         {!bibleChapter && <p className="loading">טוען את הפרק מספריא…</p>}
         {bibleChapter?.verses.map((verse) => {
           const verseNumber = passageStartVerse(verse.ref)
-          const knownPassage = passages.find((passage) => passage.book === book && passage.chapter === chapter && isSingleVerse(passage.selection) && passage.selection.startVerse === verseNumber)
+          const knownPassage = ensureSingleVersePassage(book, chapter, verseNumber)
           const verseRipples = knownPassage ? ripples.filter((ripple) => rippleIncludesPassage(ripple, knownPassage.id)) : []
           const sourceCount = knownPassage ? new Set(verseRipples.flatMap((ripple) => ripple.members.map((member) => member.passageId).filter((id) => !passagesOverlap(id, knownPassage.id)))).size : 0
           const summary = `${verseRipples.length === 1 ? 'אדווה אחת' : `${verseRipples.length} אדוות`} · ${sourceCount === 1 ? 'מקור נוסף אחד' : `${sourceCount} מקורות נוספים`}`
@@ -226,6 +234,7 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
           </button>
         })}
       </div>
+      <ChapterNavigation previousBook={previousBook?.titleHe} nextBook={nextBook?.titleHe} canPreviousChapter={Boolean(chapter > 1 || previousBook)} canNextChapter={Boolean(chapter < bookRecord.chapters || nextBook)} onPreviousBook={() => previousBook && navigate(previousBook.book, 1)} onNextBook={() => nextBook && navigate(nextBook.book, 1)} onPreviousChapter={navigatePreviousChapter} onNextChapter={navigateNextChapter} />
       <p className="text-source">טקסט: ספריא · {bibleChapter?.source === 'sefaria' ? "Tanach with Ta'amei Hamikra · נחלת הכלל" : 'מצב מקומי זמני'}</p>
     </section>
     {mobilePanelOpen && <button className="panel-backdrop" aria-label="סגירת פאנל האדוות" onClick={() => setMobilePanelOpen(false)} />}
@@ -249,6 +258,10 @@ function Workspace({ provider, book, chapter, selectedId, proposals, ripples, re
     </aside>
     {!mobilePanelOpen && <button className="mobile-ripple-bar" onClick={() => setMobilePanelOpen(true)}><span><strong>{referenceOf(selected)}</strong> · {rippleSummary}</span><span>הצגה ↑</span></button>}
   </div>
+}
+
+function ChapterNavigation({ previousBook, nextBook, canPreviousChapter, canNextChapter, onPreviousBook, onNextBook, onPreviousChapter, onNextChapter }: { previousBook?: string; nextBook?: string; canPreviousChapter: boolean; canNextChapter: boolean; onPreviousBook: () => void; onNextBook: () => void; onPreviousChapter: () => void; onNextChapter: () => void }) {
+  return <nav className="chapter-navigation" aria-label="ניווט בין ספרים ופרקים"><div><button disabled={!previousBook} onClick={onPreviousBook}>→ הספר הקודם{previousBook ? `: ${previousBook}` : ''}</button><button disabled={!nextBook} onClick={onNextBook}>הספר הבא{nextBook ? `: ${nextBook}` : ''} ←</button></div><div><button disabled={!canPreviousChapter} onClick={onPreviousChapter}>→ הפרק הקודם</button><button disabled={!canNextChapter} onClick={onNextChapter}>הפרק הבא ←</button></div></nav>
 }
 
 function RippleView({ ripple, onBack, onNavigate, onSaveTitle, provider }: { ripple: Ripple; onBack: () => void; onNavigate: (id: string) => void; onSaveTitle?: (title: string) => Promise<void>; provider: BibleTextProvider }) {
